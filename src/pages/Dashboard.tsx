@@ -1,0 +1,282 @@
+import { useState } from "react";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { 
+  Shield, 
+  Plus, 
+  Heart, 
+  Stethoscope, 
+  Leaf, 
+  FileText, 
+  Users, 
+  Settings, 
+  Lock,
+  Activity,
+  Database,
+  AlertTriangle,
+  CheckCircle
+} from "lucide-react";
+import { useNavigate } from "react-router-dom";
+
+const Dashboard = () => {
+  const [activeTab, setActiveTab] = useState("overview");
+  const navigate = useNavigate();
+
+  // Mock data for demonstration
+  const userRole = "healthcare_provider"; // This would come from authentication
+  const stats = {
+    totalRecords: 1247,
+    humanRecords: 892,
+    animalRecords: 231,
+    environmentalRecords: 124,
+    encryptedRecords: 1247, // All records are encrypted
+    blockchainVerified: 1247
+  };
+
+  const recentActivity = [
+    {
+      id: 1,
+      type: "human",
+      action: "Created patient record",
+      patient: "John Doe",
+      timestamp: "2 hours ago",
+      status: "verified"
+    },
+    {
+      id: 2,
+      type: "animal",
+      action: "Updated livestock health",
+      patient: "Cattle - Farm ID: 4521",
+      timestamp: "5 hours ago",
+      status: "verified"
+    },
+    {
+      id: 3,
+      type: "environmental",
+      action: "Air quality assessment",
+      patient: "Zone A - Industrial District",
+      timestamp: "1 day ago",
+      status: "pending"
+    }
+  ];
+
+  const rolePermissions = {
+    healthcare_provider: {
+      name: "Healthcare Provider",
+      permissions: ["Create Human Records", "Update Patient Data", "View Medical History", "Generate Reports"],
+      color: "text-blue-600"
+    },
+    researcher: {
+      name: "Researcher",
+      permissions: ["View Anonymized Data", "Generate Analytics", "Export Research Data", "Access Trends"],
+      color: "text-purple-600"
+    },
+    individual: {
+      name: "Individual",
+      permissions: ["View Own Records", "Update Personal Info", "Share Data", "Download Reports"],
+      color: "text-green-600"
+    }
+  };
+
+  const currentRole = rolePermissions[userRole as keyof typeof rolePermissions];
+
+  return (
+    <div className="min-h-screen bg-gradient-subtle">
+      {/* Navigation */}
+      <nav className="border-b bg-card/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex justify-between items-center">
+          <div className="flex items-center space-x-2">
+            <Shield className="h-8 w-8 text-primary" />
+            <span className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
+              OneHealth Shield
+            </span>
+          </div>
+          <div className="flex items-center space-x-4">
+            <Badge variant="secondary" className={currentRole.color}>
+              {currentRole.name}
+            </Badge>
+            <Button variant="outline" size="sm">
+              <Settings className="h-4 w-4 mr-2" />
+              Settings
+            </Button>
+            <Button variant="ghost" onClick={() => navigate('/')}>
+              Sign Out
+            </Button>
+          </div>
+        </div>
+      </nav>
+
+      <div className="container mx-auto px-4 py-8">
+        {/* Header */}
+        <div className="mb-8">
+          <h1 className="text-3xl font-bold mb-2">Dashboard</h1>
+          <p className="text-muted-foreground">
+            Secure management of OneHealth data records with blockchain verification
+          </p>
+        </div>
+
+        {/* Security Status */}
+        <div className="mb-8">
+          <Card className="shadow-secure bg-gradient-card border-0">
+            <CardHeader>
+              <CardTitle className="flex items-center space-x-2 text-accent">
+                <Shield className="h-5 w-5" />
+                <span>Security Status</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="text-center space-y-1">
+                  <CheckCircle className="h-8 w-8 text-accent mx-auto" />
+                  <p className="text-sm font-medium">MFA Enabled</p>
+                </div>
+                <div className="text-center space-y-1">
+                  <Lock className="h-8 w-8 text-accent mx-auto" />
+                  <p className="text-sm font-medium">AES Encrypted</p>
+                </div>
+                <div className="text-center space-y-1">
+                  <Database className="h-8 w-8 text-accent mx-auto" />
+                  <p className="text-sm font-medium">Blockchain Verified</p>
+                </div>
+                <div className="text-center space-y-1">
+                  <Activity className="h-8 w-8 text-accent mx-auto" />
+                  <p className="text-sm font-medium">Real-time Monitoring</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Stats Overview */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-8">
+          <Card className="shadow-card bg-gradient-card border-0">
+            <CardContent className="p-6 text-center">
+              <Database className="h-8 w-8 text-primary mx-auto mb-2" />
+              <p className="text-2xl font-bold">{stats.totalRecords.toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">Total Records</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card bg-gradient-card border-0">
+            <CardContent className="p-6 text-center">
+              <Heart className="h-8 w-8 text-red-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold">{stats.humanRecords.toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">Human Health</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card bg-gradient-card border-0">
+            <CardContent className="p-6 text-center">
+              <Stethoscope className="h-8 w-8 text-blue-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold">{stats.animalRecords.toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">Animal Health</p>
+            </CardContent>
+          </Card>
+          <Card className="shadow-card bg-gradient-card border-0">
+            <CardContent className="p-6 text-center">
+              <Leaf className="h-8 w-8 text-green-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold">{stats.environmentalRecords.toLocaleString()}</p>
+              <p className="text-sm text-muted-foreground">Environmental</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Main Content */}
+        <div className="grid lg:grid-cols-3 gap-8">
+          {/* Quick Actions */}
+          <div className="space-y-6">
+            <Card className="shadow-card bg-gradient-card border-0">
+              <CardHeader>
+                <CardTitle>Quick Actions</CardTitle>
+                <CardDescription>
+                  Common tasks based on your role permissions
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <Button className="w-full justify-start shadow-medical">
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create New Record
+                </Button>
+                <Button variant="outline" className="w-full justify-start">
+                  <FileText className="h-4 w-4 mr-2" />
+                  Generate Report
+                </Button>
+                <Button variant="outline" className="w-full justify-start">
+                  <Users className="h-4 w-4 mr-2" />
+                  Share Data
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Role Permissions */}
+            <Card className="shadow-card bg-gradient-card border-0">
+              <CardHeader>
+                <CardTitle>Your Permissions</CardTitle>
+                <CardDescription>
+                  What you can do in this system
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {currentRole.permissions.map((permission, index) => (
+                    <div key={index} className="flex items-center space-x-2">
+                      <CheckCircle className="h-4 w-4 text-accent" />
+                      <span className="text-sm">{permission}</span>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="lg:col-span-2">
+            <Card className="shadow-card bg-gradient-card border-0">
+              <CardHeader>
+                <CardTitle>Recent Activity</CardTitle>
+                <CardDescription>
+                  Latest actions on health records
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {recentActivity.map((activity) => (
+                    <div key={activity.id} className="flex items-start space-x-4 p-4 bg-muted/50 rounded-lg">
+                      <div className="p-2 rounded-full bg-primary/10">
+                        {activity.type === "human" && <Heart className="h-4 w-4 text-red-500" />}
+                        {activity.type === "animal" && <Stethoscope className="h-4 w-4 text-blue-500" />}
+                        {activity.type === "environmental" && <Leaf className="h-4 w-4 text-green-500" />}
+                      </div>
+                      <div className="flex-1 space-y-1">
+                        <p className="text-sm font-medium">{activity.action}</p>
+                        <p className="text-sm text-muted-foreground">{activity.patient}</p>
+                        <div className="flex items-center space-x-2">
+                          <span className="text-xs text-muted-foreground">{activity.timestamp}</span>
+                          <Badge variant={activity.status === "verified" ? "default" : "secondary"} className="text-xs">
+                            {activity.status === "verified" ? (
+                              <>
+                                <CheckCircle className="h-3 w-3 mr-1" />
+                                Blockchain Verified
+                              </>
+                            ) : (
+                              <>
+                                <AlertTriangle className="h-3 w-3 mr-1" />
+                                Pending Verification
+                              </>
+                            )}
+                          </Badge>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default Dashboard;
