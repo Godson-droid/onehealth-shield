@@ -7,6 +7,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Shield, UserCheck, Users, FlaskConical, User, Mail, Lock, QrCode } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const Auth = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -16,7 +18,9 @@ const Auth = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const roles = [
     {
@@ -39,10 +43,103 @@ const Auth = () => {
     }
   ];
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    // For demo purposes, navigate to dashboard
-    navigate('/dashboard');
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        // Validate form
+        if (password !== confirmPassword) {
+          toast({
+            title: "Error",
+            description: "Passwords do not match",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (!selectedRole) {
+          toast({
+            title: "Error", 
+            description: "Please select a role",
+            variant: "destructive",
+          });
+          return;
+        }
+
+        // Sign up with Supabase
+        const { data, error } = await supabase.auth.signUp({
+          email,
+          password,
+          options: {
+            emailRedirectTo: `${window.location.origin}/mfa-setup`,
+            data: {
+              first_name: firstName,
+              last_name: lastName,
+              role: selectedRole,
+            }
+          }
+        });
+
+        if (error) {
+          toast({
+            title: "Sign Up Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (data.user) {
+          toast({
+            title: "Account Created",
+            description: "Please check your email to verify your account, then set up MFA.",
+          });
+          navigate('/mfa-setup');
+        }
+      } else {
+        // Sign in with Supabase
+        const { data, error } = await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (error) {
+          toast({
+            title: "Sign In Failed",
+            description: error.message,
+            variant: "destructive",
+          });
+          return;
+        }
+
+        if (data.user) {
+          // Check if MFA is enabled
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('mfa_enabled')
+            .eq('user_id', data.user.id)
+            .single();
+
+          if (profile?.mfa_enabled) {
+            // Redirect to MFA verification (you would implement this)
+            navigate('/dashboard');
+          } else {
+            // Redirect to MFA setup
+            navigate('/mfa-setup');
+          }
+        }
+      }
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const selectedRoleData = roles.find(role => role.value === selectedRole);
@@ -206,8 +303,8 @@ const Auth = () => {
               </div>
 
               {/* Submit Button */}
-              <Button type="submit" className="w-full shadow-medical" size="lg">
-                {isSignUp ? "Create Secure Account" : "Sign In Securely"}
+              <Button type="submit" className="w-full shadow-medical" size="lg" disabled={loading}>
+                {loading ? "Processing..." : (isSignUp ? "Create Secure Account" : "Sign In Securely")}
                 <Shield className="ml-2 h-4 w-4" />
               </Button>
             </form>

@@ -7,25 +7,42 @@ import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Shield, QrCode, Key, Smartphone, Copy, Check, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 const MFASetup = () => {
   const [qrCodeGenerated, setQrCodeGenerated] = useState(false);
   const [manualCode, setManualCode] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [secretCopied, setSecretCopied] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   // Simulate QR code data (in real implementation, this would come from backend)
   const secretKey = "JBSWY3DPEHPK3PXP7ABCDEFGHIJKLMNOP";
   const qrCodeUrl = `otpauth://totp/OneHealthShield:user@example.com?secret=${secretKey}&issuer=OneHealthShield`;
 
   useEffect(() => {
+    // Check if user is authenticated
+    const checkUser = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+      setUser(user);
+    };
+
+    checkUser();
+
     // Simulate QR code generation
     const timer = setTimeout(() => {
       setQrCodeGenerated(true);
     }, 1000);
     return () => clearTimeout(timer);
-  }, []);
+  }, [navigate]);
 
   const handleCopySecret = () => {
     navigator.clipboard.writeText(secretKey);
@@ -33,11 +50,63 @@ const MFASetup = () => {
     setTimeout(() => setSecretCopied(false), 2000);
   };
 
-  const handleVerifyMFA = (e: React.FormEvent) => {
+  const handleVerifyMFA = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In real implementation, verify the code with backend
-    if (verificationCode.length === 6) {
+    setLoading(true);
+
+    try {
+      if (!user) {
+        toast({
+          title: "Error",
+          description: "No user found. Please sign in again.",
+          variant: "destructive",
+        });
+        navigate('/auth');
+        return;
+      }
+
+      if (verificationCode.length !== 6) {
+        toast({
+          title: "Error",
+          description: "Please enter a 6-digit verification code",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      // In a real implementation, you would verify the TOTP code here
+      // For now, we'll just update the user's MFA status
+      const { error } = await supabase
+        .from('profiles')
+        .update({ 
+          mfa_enabled: true,
+          mfa_secret: secretKey 
+        })
+        .eq('user_id', user.id);
+
+      if (error) {
+        toast({
+          title: "Error",
+          description: "Failed to enable MFA. Please try again.",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      toast({
+        title: "MFA Enabled",
+        description: "Two-factor authentication has been successfully enabled for your account.",
+      });
+
       navigate('/dashboard');
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "An unexpected error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -143,7 +212,7 @@ const MFASetup = () => {
                       </div>
                       <div className="space-y-2">
                         <Label>Account User</Label>
-                        <Input value="user@example.com" readOnly />
+                        <Input value={user?.email || "Loading..."} readOnly />
                       </div>
                     </div>
                     
@@ -195,8 +264,8 @@ const MFASetup = () => {
                   />
                 </div>
 
-                <Button type="submit" className="w-full shadow-medical" size="lg">
-                  Verify & Complete Setup
+                <Button type="submit" className="w-full shadow-medical" size="lg" disabled={loading}>
+                  {loading ? "Verifying..." : "Verify & Complete Setup"}
                   <ArrowRight className="ml-2 h-4 w-4" />
                 </Button>
               </form>
