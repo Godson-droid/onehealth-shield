@@ -14,6 +14,126 @@ export type Database = {
   }
   public: {
     Tables: {
+      blockchain_blocks: {
+        Row: {
+          block_number: number
+          created_at: string
+          current_hash: string
+          difficulty: number
+          id: string
+          merkle_root: string
+          miner_node_id: string | null
+          nonce: number
+          previous_hash: string
+          timestamp: string
+          transactions_count: number | null
+        }
+        Insert: {
+          block_number: number
+          created_at?: string
+          current_hash: string
+          difficulty?: number
+          id?: string
+          merkle_root: string
+          miner_node_id?: string | null
+          nonce: number
+          previous_hash: string
+          timestamp?: string
+          transactions_count?: number | null
+        }
+        Update: {
+          block_number?: number
+          created_at?: string
+          current_hash?: string
+          difficulty?: number
+          id?: string
+          merkle_root?: string
+          miner_node_id?: string | null
+          nonce?: number
+          previous_hash?: string
+          timestamp?: string
+          transactions_count?: number | null
+        }
+        Relationships: []
+      }
+      blockchain_nodes: {
+        Row: {
+          blocks_mined: number | null
+          created_at: string
+          id: string
+          last_seen: string | null
+          location: string
+          node_id: string
+          status: string
+        }
+        Insert: {
+          blocks_mined?: number | null
+          created_at?: string
+          id?: string
+          last_seen?: string | null
+          location: string
+          node_id: string
+          status?: string
+        }
+        Update: {
+          blocks_mined?: number | null
+          created_at?: string
+          id?: string
+          last_seen?: string | null
+          location?: string
+          node_id?: string
+          status?: string
+        }
+        Relationships: []
+      }
+      health_records: {
+        Row: {
+          block_number: number | null
+          blockchain_hash: string | null
+          created_at: string
+          description: string | null
+          encrypted_data: string
+          id: string
+          location: string
+          patient_name: string
+          record_type: string
+          transaction_id: string | null
+          updated_at: string
+          user_id: string
+          verification_status: string
+        }
+        Insert: {
+          block_number?: number | null
+          blockchain_hash?: string | null
+          created_at?: string
+          description?: string | null
+          encrypted_data: string
+          id?: string
+          location: string
+          patient_name: string
+          record_type: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id: string
+          verification_status?: string
+        }
+        Update: {
+          block_number?: number | null
+          blockchain_hash?: string | null
+          created_at?: string
+          description?: string | null
+          encrypted_data?: string
+          id?: string
+          location?: string
+          patient_name?: string
+          record_type?: string
+          transaction_id?: string | null
+          updated_at?: string
+          user_id?: string
+          verification_status?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           created_at: string
