@@ -83,16 +83,16 @@ const Index = () => {
                 🔒 Blockchain-Secured Health Platform
               </Badge>
               <h1 className="text-5xl font-bold leading-tight">
-                Protecting{" "}
+                Securing Nigeria's{" "}
                 <span className="bg-gradient-hero bg-clip-text text-transparent">
                   OneHealth
                 </span>{" "}
-                Data with Advanced Security
+                Data Infrastructure
               </h1>
               <p className="text-xl text-muted-foreground leading-relaxed">
-                A professional digital system using Python blockchain and AES encryption 
-                to secure human, animal, and environmental health records with role-based 
-                access and compulsory multi-factor authentication.
+                Nigeria's premier blockchain-secured health platform using AES encryption 
+                to protect human, animal, and environmental health records across all 36 states 
+                and FCT with mandatory multi-factor authentication.
               </p>
             </div>
             <div className="flex flex-col sm:flex-row gap-4">

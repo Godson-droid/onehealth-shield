@@ -19,20 +19,26 @@ import {
   CheckCircle
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import RecordModal from "@/components/RecordModal";
+import BlockchainModal from "@/components/BlockchainModal";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
+  const [recordModalOpen, setRecordModalOpen] = useState(false);
+  const [blockchainModalOpen, setBlockchainModalOpen] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
-  // Mock data for demonstration
+  // Nigeria-specific data for demonstration
   const userRole = "healthcare_provider"; // This would come from authentication
   const stats = {
-    totalRecords: 1247,
-    humanRecords: 892,
-    animalRecords: 231,
-    environmentalRecords: 124,
-    encryptedRecords: 1247, // All records are encrypted
-    blockchainVerified: 1247
+    totalRecords: 2847,
+    humanRecords: 1892,
+    animalRecords: 631,
+    environmentalRecords: 324,
+    encryptedRecords: 2847, // All records are encrypted
+    blockchainVerified: 2847
   };
 
   const recentActivity = [
@@ -40,7 +46,7 @@ const Dashboard = () => {
       id: 1,
       type: "human",
       action: "Created patient record",
-      patient: "John Doe",
+      patient: "Adaora Okafor - Lagos University Teaching Hospital",
       timestamp: "2 hours ago",
       status: "verified"
     },
@@ -48,7 +54,7 @@ const Dashboard = () => {
       id: 2,
       type: "animal",
       action: "Updated livestock health",
-      patient: "Cattle - Farm ID: 4521",
+      patient: "Fulani Cattle - Kaduna State Farm ID: NG-4521",
       timestamp: "5 hours ago",
       status: "verified"
     },
@@ -56,9 +62,25 @@ const Dashboard = () => {
       id: 3,
       type: "environmental",
       action: "Air quality assessment",
-      patient: "Zone A - Industrial District",
+      patient: "Victoria Island - Lagos State Industrial Zone",
       timestamp: "1 day ago",
       status: "pending"
+    },
+    {
+      id: 4,
+      type: "human",
+      action: "Malaria diagnosis recorded",
+      patient: "Emeka Nwosu - Abuja National Hospital",
+      timestamp: "3 hours ago",
+      status: "verified"
+    },
+    {
+      id: 5,
+      type: "animal",
+      action: "Poultry vaccination schedule",
+      patient: "Broiler Chickens - Ogun State Poultry Farm NG-7823",
+      timestamp: "6 hours ago",
+      status: "verified"
     }
   ];
 
@@ -81,6 +103,35 @@ const Dashboard = () => {
   };
 
   const currentRole = rolePermissions[userRole as keyof typeof rolePermissions];
+
+  const handleCreateRecord = () => {
+    setRecordModalOpen(true);
+  };
+
+  const handleGenerateReport = () => {
+    toast({
+      title: "Generating Report",
+      description: "Your health data report is being compiled and encrypted...",
+    });
+    
+    setTimeout(() => {
+      toast({
+        title: "Report Generated",
+        description: "Your secure health report has been generated and is ready for download.",
+      });
+    }, 3000);
+  };
+
+  const handleShareData = () => {
+    toast({
+      title: "Data Sharing",
+      description: "Opening secure data sharing interface...",
+    });
+  };
+
+  const handleViewBlockchain = () => {
+    setBlockchainModalOpen(true);
+  };
 
   return (
     <div className="min-h-screen bg-gradient-subtle">
@@ -193,17 +244,21 @@ const Dashboard = () => {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-3">
-                <Button className="w-full justify-start shadow-medical">
+                <Button className="w-full justify-start shadow-medical" onClick={handleCreateRecord}>
                   <Plus className="h-4 w-4 mr-2" />
                   Create New Record
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start" onClick={handleGenerateReport}>
                   <FileText className="h-4 w-4 mr-2" />
                   Generate Report
                 </Button>
-                <Button variant="outline" className="w-full justify-start">
+                <Button variant="outline" className="w-full justify-start" onClick={handleShareData}>
                   <Users className="h-4 w-4 mr-2" />
                   Share Data
+                </Button>
+                <Button variant="outline" className="w-full justify-start" onClick={handleViewBlockchain}>
+                  <Database className="h-4 w-4 mr-2" />
+                  View Blockchain
                 </Button>
               </CardContent>
             </Card>
@@ -274,6 +329,10 @@ const Dashboard = () => {
             </Card>
           </div>
         </div>
+
+        {/* Modals */}
+        <RecordModal open={recordModalOpen} onOpenChange={setRecordModalOpen} />
+        <BlockchainModal open={blockchainModalOpen} onOpenChange={setBlockchainModalOpen} />
       </div>
     </div>
   );

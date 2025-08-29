@@ -9,10 +9,11 @@ import { Shield, QrCode, Key, Smartphone, Copy, Check, ArrowRight } from "lucide
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
+import QRCodeLib from "qrcode";
 
 const MFASetup = () => {
   const [qrCodeGenerated, setQrCodeGenerated] = useState(false);
-  const [manualCode, setManualCode] = useState("");
+  const [qrCodeDataUrl, setQrCodeDataUrl] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [secretCopied, setSecretCopied] = useState(false);
   const [user, setUser] = useState<any>(null);
@@ -20,9 +21,18 @@ const MFASetup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Simulate QR code data (in real implementation, this would come from backend)
-  const secretKey = "JBSWY3DPEHPK3PXP7ABCDEFGHIJKLMNOP";
-  const qrCodeUrl = `otpauth://totp/OneHealthShield:user@example.com?secret=${secretKey}&issuer=OneHealthShield`;
+  // Generate a proper secret key for TOTP
+  const generateSecret = () => {
+    const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ234567';
+    let result = '';
+    for (let i = 0; i < 32; i++) {
+      result += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    return result;
+  };
+
+  const [secretKey] = useState(generateSecret());
+  const qrCodeUrl = `otpauth://totp/OneHealthShield:${user?.email || 'user@example.com'}?secret=${secretKey}&issuer=OneHealthShield`;
 
   useEffect(() => {
     // Check if user is authenticated
@@ -36,13 +46,31 @@ const MFASetup = () => {
     };
 
     checkUser();
-
-    // Simulate QR code generation
-    const timer = setTimeout(() => {
-      setQrCodeGenerated(true);
-    }, 1000);
-    return () => clearTimeout(timer);
   }, [navigate]);
+
+  useEffect(() => {
+    // Generate QR code when user data is available
+    const generateQRCode = async () => {
+      if (user) {
+        try {
+          const dataUrl = await QRCodeLib.toDataURL(qrCodeUrl, {
+            width: 256,
+            margin: 2,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            }
+          });
+          setQrCodeDataUrl(dataUrl);
+          setQrCodeGenerated(true);
+        } catch (err) {
+          console.error('Error generating QR code:', err);
+        }
+      }
+    };
+
+    generateQRCode();
+  }, [user, qrCodeUrl]);
 
   const handleCopySecret = () => {
     navigator.clipboard.writeText(secretKey);
@@ -163,19 +191,20 @@ const MFASetup = () => {
                   </p>
                   
                   <div className="flex justify-center">
-                    {qrCodeGenerated ? (
+                    {qrCodeGenerated && qrCodeDataUrl ? (
                       <div className="p-4 bg-white rounded-lg shadow-card">
-                        {/* In real implementation, use a QR code library */}
-                        <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center">
-                          <div className="text-center space-y-2">
-                            <QrCode className="h-16 w-16 mx-auto text-primary" />
-                            <p className="text-xs text-muted-foreground">QR Code Generated</p>
-                          </div>
-                        </div>
+                        <img 
+                          src={qrCodeDataUrl} 
+                          alt="MFA QR Code" 
+                          className="w-48 h-48"
+                        />
                       </div>
                     ) : (
                       <div className="w-48 h-48 bg-muted rounded-lg flex items-center justify-center animate-pulse">
-                        <p className="text-muted-foreground">Generating QR Code...</p>
+                        <div className="text-center space-y-2">
+                          <QrCode className="h-16 w-16 mx-auto text-primary animate-spin" />
+                          <p className="text-muted-foreground">Generating QR Code...</p>
+                        </div>
                       </div>
                     )}
                   </div>
