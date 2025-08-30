@@ -30,12 +30,61 @@ const Dashboard = () => {
   const [blockchainModalOpen, setBlockchainModalOpen] = useState(false);
   const [healthRecords, setHealthRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [userRole, setUserRole] = useState("individual");
+  const [profile, setProfile] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
 
   useEffect(() => {
+    const checkAuth = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+      
+      // Check if user has completed MFA setup
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('mfa_enabled')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (!profile?.mfa_enabled) {
+        navigate('/mfa-setup');
+        return;
+      }
+    };
+    
+    checkAuth();
     fetchHealthRecords();
+    fetchUserProfile();
   }, []);
+
+  const fetchUserProfile = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+
+      if (error) {
+        console.error('Error fetching profile:', error);
+      } else {
+        setProfile(data);
+        setUserRole(data.role || 'individual');
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
 
   const fetchHealthRecords = async () => {
     try {
@@ -63,8 +112,7 @@ const Dashboard = () => {
     }
   };
 
-  // Nigeria-specific data for demonstration
-  const userRole = "healthcare_provider"; // This would come from authentication
+  // Get role data from database, not hardcoded
   const stats = {
     totalRecords: loading ? 0 : healthRecords.length,
     humanRecords: loading ? 0 : healthRecords.filter(r => r.record_type === 'human').length,
@@ -156,7 +204,10 @@ const Dashboard = () => {
               <Settings className="h-4 w-4 mr-2" />
               Settings
             </Button>
-            <Button variant="ghost" onClick={() => navigate('/')}>
+            <Button variant="ghost" onClick={async () => {
+              await supabase.auth.signOut();
+              navigate('/');
+            }}>
               Sign Out
             </Button>
           </div>

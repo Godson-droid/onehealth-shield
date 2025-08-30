@@ -102,20 +102,19 @@ const MFASetup = () => {
         return;
       }
 
-      // In a real implementation, you would verify the TOTP code here
-      // For now, we'll just update the user's MFA status
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          mfa_enabled: true,
-          mfa_secret: secretKey 
-        })
-        .eq('user_id', user.id);
+      // Verify TOTP code and enable MFA
+      const { data, error } = await supabase.functions.invoke('setup-totp', {
+        body: { 
+          userId: user.id,
+          token: verificationCode,
+          secret: secretKey 
+        }
+      });
 
-      if (error) {
+      if (error || !data.success) {
         toast({
           title: "Error",
-          description: "Failed to enable MFA. Please try again.",
+          description: "Invalid verification code. Please try again.",
           variant: "destructive",
         });
         return;

@@ -123,8 +123,8 @@ const Auth = () => {
             .single();
 
           if (profile?.mfa_enabled) {
-            // Redirect to MFA verification (you would implement this)
-            navigate('/dashboard');
+            // Redirect to MFA verification
+            navigate('/mfa-verify');
           } else {
             // Redirect to MFA setup
             navigate('/mfa-setup');
