@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -22,67 +22,71 @@ import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import RecordModal from "@/components/RecordModal";
 import BlockchainModal from "@/components/BlockchainModal";
+import { supabase } from "@/integrations/supabase/client";
 
 const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [blockchainModalOpen, setBlockchainModalOpen] = useState(false);
+  const [healthRecords, setHealthRecords] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  useEffect(() => {
+    fetchHealthRecords();
+  }, []);
+
+  const fetchHealthRecords = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        navigate('/auth');
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from('health_records')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching health records:', error);
+      } else {
+        setHealthRecords(data || []);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Nigeria-specific data for demonstration
   const userRole = "healthcare_provider"; // This would come from authentication
   const stats = {
-    totalRecords: 2847,
-    humanRecords: 1892,
-    animalRecords: 631,
-    environmentalRecords: 324,
-    encryptedRecords: 2847, // All records are encrypted
-    blockchainVerified: 2847
+    totalRecords: loading ? 0 : healthRecords.length,
+    humanRecords: loading ? 0 : healthRecords.filter(r => r.record_type === 'human').length,
+    animalRecords: loading ? 0 : healthRecords.filter(r => r.record_type === 'animal').length,
+    environmentalRecords: loading ? 0 : healthRecords.filter(r => r.record_type === 'environmental').length,
+    encryptedRecords: loading ? 0 : healthRecords.length, // All records are encrypted
+    blockchainVerified: loading ? 0 : healthRecords.filter(r => r.verification_status === 'verified').length
   };
 
-  const recentActivity = [
-    {
-      id: 1,
-      type: "human",
-      action: "Created patient record",
-      patient: "Adaora Okafor - Lagos University Teaching Hospital",
-      timestamp: "2 hours ago",
-      status: "verified"
-    },
-    {
-      id: 2,
-      type: "animal",
-      action: "Updated livestock health",
-      patient: "Fulani Cattle - Kaduna State Farm ID: NG-4521",
-      timestamp: "5 hours ago",
-      status: "verified"
-    },
-    {
-      id: 3,
-      type: "environmental",
-      action: "Air quality assessment",
-      patient: "Victoria Island - Lagos State Industrial Zone",
-      timestamp: "1 day ago",
-      status: "pending"
-    },
-    {
-      id: 4,
-      type: "human",
-      action: "Malaria diagnosis recorded",
-      patient: "Emeka Nwosu - Abuja National Hospital",
-      timestamp: "3 hours ago",
-      status: "verified"
-    },
-    {
-      id: 5,
-      type: "animal",
-      action: "Poultry vaccination schedule",
-      patient: "Broiler Chickens - Ogun State Poultry Farm NG-7823",
-      timestamp: "6 hours ago",
-      status: "verified"
-    }
-  ];
+  const recentActivity = loading ? [] : healthRecords.slice(0, 5).map((record, index) => ({
+    id: record.id,
+    type: record.record_type,
+    action: `Created ${record.record_type} health record`,
+    patient: `${record.patient_name} - ${record.location}`,
+    timestamp: new Date(record.created_at).toLocaleDateString('en-NG', { 
+      hour: '2-digit', 
+      minute: '2-digit',
+      day: 'numeric',
+      month: 'short'
+    }),
+    status: record.verification_status || 'pending'
+  }));
 
   const rolePermissions = {
     healthcare_provider: {
@@ -331,7 +335,11 @@ const Dashboard = () => {
         </div>
 
         {/* Modals */}
-        <RecordModal open={recordModalOpen} onOpenChange={setRecordModalOpen} />
+        <RecordModal 
+          open={recordModalOpen} 
+          onOpenChange={setRecordModalOpen}
+          onRecordCreated={fetchHealthRecords}
+        />
         <BlockchainModal open={blockchainModalOpen} onOpenChange={setBlockchainModalOpen} />
       </div>
     </div>

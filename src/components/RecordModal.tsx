@@ -8,13 +8,15 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge";
 import { Heart, Stethoscope, Leaf, Shield, CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface RecordModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onRecordCreated?: () => void;
 }
 
-const RecordModal = ({ open, onOpenChange }: RecordModalProps) => {
+const RecordModal = ({ open, onOpenChange, onRecordCreated }: RecordModalProps) => {
   const [recordType, setRecordType] = useState<string>("");
   const [patientName, setPatientName] = useState("");
   const [location, setLocation] = useState("");
@@ -26,13 +28,31 @@ const RecordModal = ({ open, onOpenChange }: RecordModalProps) => {
     e.preventDefault();
     setLoading(true);
 
-    // Simulate blockchain verification and record creation
     try {
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+
+      // Call the blockchain service to create record
+      const response = await supabase.functions.invoke('blockchain-service', {
+        body: {
+          record_type: recordType,
+          patient_name: patientName,
+          location: location,
+          description: description,
+          user_id: user.id
+        }
+      });
+
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
       toast({
         title: "Record Created Successfully",
-        description: `${recordType} health record has been encrypted and added to the blockchain.`,
+        description: `Your health record has been encrypted and added to blockchain block #${response.data.block_number}`,
       });
 
       // Reset form
@@ -41,10 +61,16 @@ const RecordModal = ({ open, onOpenChange }: RecordModalProps) => {
       setLocation("");
       setDescription("");
       onOpenChange(false);
-    } catch (error) {
+      
+      // Refresh dashboard data
+      if (onRecordCreated) {
+        onRecordCreated();
+      }
+    } catch (error: any) {
+      console.error('Error creating record:', error);
       toast({
         title: "Error",
-        description: "Failed to create record. Please try again.",
+        description: error.message || "Failed to create record. Please try again.",
         variant: "destructive",
       });
     } finally {

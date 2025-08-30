@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Database, Shield, CheckCircle, Clock, AlertCircle } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface BlockchainModalProps {
   open: boolean;
@@ -13,6 +14,14 @@ interface BlockchainModalProps {
 const BlockchainModal = ({ open, onOpenChange }: BlockchainModalProps) => {
   const [verificationProgress, setVerificationProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
+  const [networkStats, setNetworkStats] = useState({
+    total_nodes: 0,
+    active_nodes: 0,
+    current_block_height: 0,
+    total_transactions: 0,
+    average_hash_rate: 0,
+    network_difficulty: 4
+  });
   
   const verificationSteps = [
     { 
@@ -43,14 +52,20 @@ const BlockchainModal = ({ open, onOpenChange }: BlockchainModalProps) => {
   ];
 
   const blockchainStats = [
-    { label: "Network Nodes", value: "47", description: "Active nodes across Nigeria" },
-    { label: "Block Height", value: "15,432", description: "Current blockchain height" },
-    { label: "Hash Rate", value: "2.3 TH/s", description: "Network security strength" },
+    { label: "Network Nodes", value: networkStats.total_nodes.toString(), description: "Active nodes across Nigeria" },
+    { label: "Block Height", value: networkStats.current_block_height.toLocaleString(), description: "Current blockchain height" },
+    { label: "Hash Rate", value: `${networkStats.average_hash_rate} TH/s`, description: "Network security strength" },
     { label: "Confirmation Time", value: "~3 min", description: "Average verification time" }
   ];
 
   useEffect(() => {
     if (open) {
+      setVerificationProgress(0);
+      setCurrentStep(0);
+      
+      // Fetch real network stats
+      fetchNetworkStats();
+      
       const interval = setInterval(() => {
         setVerificationProgress((prev) => {
           if (prev >= 100) {
@@ -72,6 +87,20 @@ const BlockchainModal = ({ open, onOpenChange }: BlockchainModalProps) => {
       return () => clearInterval(interval);
     }
   }, [open, verificationProgress]);
+
+  const fetchNetworkStats = async () => {
+    try {
+      const response = await supabase.functions.invoke('blockchain-service', {
+        body: { action: 'network_stats' }
+      });
+      
+      if (response.data && !response.error) {
+        setNetworkStats(response.data);
+      }
+    } catch (error) {
+      console.error('Error fetching network stats:', error);
+    }
+  };
 
   const getStepIcon = (index: number, status: string) => {
     if (index < currentStep) return <CheckCircle className="h-5 w-5 text-accent" />;
