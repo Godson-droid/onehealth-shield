@@ -3,6 +3,15 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
 import { authenticator } from "https://esm.sh/otplib@12.0.1"
 
+// Configure TOTP settings to match standard authenticator apps
+authenticator.options = {
+  step: 30,        // 30-second time window
+  window: 2,       // Allow 2 steps of tolerance (±60 seconds)
+  digits: 6,       // 6-digit codes
+  algorithm: 'sha1', // SHA1 algorithm (standard)
+  encoding: 'base32' // Base32 encoding
+}
+
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
@@ -55,11 +64,17 @@ serve(async (req) => {
       )
     }
 
+    console.log('Verifying TOTP login for user:', userId)
+    console.log('Token received:', token)
+    console.log('Secret exists:', !!profile.mfa_secret)
+    
     // Verify TOTP token
     const isValid = authenticator.verify({
       token: token,
       secret: profile.mfa_secret
     })
+    
+    console.log('TOTP verification result:', isValid)
 
     return new Response(
       JSON.stringify({ valid: isValid }),
