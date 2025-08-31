@@ -1,12 +1,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-import * as OTPLib from "https://esm.sh/otplib@12.0.1"
-
-const { authenticator } = OTPLib
+import otplib from "https://esm.sh/otplib@12.0.1"
 
 // Configure TOTP settings to match standard authenticator apps
-authenticator.options = {
+otplib.authenticator.options = {
   step: 60,        // 60-second time window
   window: 2,       // Allow 2 steps of tolerance (±120 seconds)
   digits: 6,       // 6-digit codes
@@ -71,7 +69,7 @@ serve(async (req) => {
     console.log('Secret exists:', !!profile.mfa_secret)
     
     // Verify TOTP token
-    const isValid = authenticator.verify({
+    const isValid = otplib.authenticator.verify({
       token: token,
       secret: profile.mfa_secret
     })
