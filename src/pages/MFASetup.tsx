@@ -32,7 +32,7 @@ const MFASetup = () => {
   };
 
   const [secretKey] = useState(generateSecret());
-  const qrCodeUrl = `otpauth://totp/OneHealthShield:${user?.email || 'user@example.com'}?secret=${secretKey}&issuer=OneHealthShield&algorithm=SHA1&digits=6&period=30`;
+  const qrCodeUrl = `otpauth://totp/OneHealthShield:${user?.email || 'user@example.com'}?secret=${secretKey}&issuer=OneHealthShield&algorithm=SHA1&digits=6&period=60`;
 
   useEffect(() => {
     // Check if user is authenticated

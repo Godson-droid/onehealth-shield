@@ -1,12 +1,14 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-import { authenticator } from "https://esm.sh/otplib@12.0.1"
+import * as OTPLib from "https://esm.sh/otplib@12.0.1"
+
+const { authenticator } = OTPLib
 
 // Configure TOTP settings to match standard authenticator apps
 authenticator.options = {
-  step: 30,        // 30-second time window
-  window: 2,       // Allow 2 steps of tolerance (±60 seconds)
+  step: 60,        // 60-second time window
+  window: 2,       // Allow 2 steps of tolerance (±120 seconds)
   digits: 6,       // 6-digit codes
   algorithm: 'sha1', // SHA1 algorithm (standard)
   encoding: 'base32' // Base32 encoding
