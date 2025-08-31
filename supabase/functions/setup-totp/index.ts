@@ -27,6 +27,7 @@ serve(async (req) => {
     const { userId, token, secret } = await req.json()
 
     if (!userId || !token || !secret) {
+      console.error('Missing required parameters:', { userId: !!userId, token: !!token, secret: !!secret })
       return new Response(
         JSON.stringify({ error: 'Missing required parameters' }),
         { 
@@ -39,6 +40,7 @@ serve(async (req) => {
     console.log('Verifying TOTP setup for user:', userId)
     console.log('Token received:', token)
     console.log('Secret (first 8 chars):', secret.substring(0, 8) + '...')
+    console.log('TOTP options:', otplib.authenticator.options)
     
     // Verify TOTP token against secret
     const isValid = otplib.authenticator.verify({

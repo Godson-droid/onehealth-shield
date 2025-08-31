@@ -68,6 +68,9 @@ const MFAVerification = () => {
         return;
       }
 
+      console.log('Attempting MFA verification for user:', user.id);
+      console.log('Verification code entered:', verificationCode);
+      
       // Call edge function to verify TOTP
       const { data, error } = await supabase.functions.invoke('verify-totp', {
         body: { 
@@ -75,6 +78,8 @@ const MFAVerification = () => {
           token: verificationCode 
         }
       });
+      
+      console.log('MFA verification response:', { data, error });
 
       if (error) {
         toast({
@@ -158,7 +163,7 @@ const MFAVerification = () => {
                   required
                 />
                 <p className="text-xs text-muted-foreground text-center">
-                  Code refreshes every 30 seconds
+                  Code refreshes every 60 seconds
                 </p>
               </div>
 

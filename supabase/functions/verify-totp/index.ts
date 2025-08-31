@@ -26,7 +26,11 @@ serve(async (req) => {
   try {
     const { userId, token } = await req.json()
 
+    console.log('Received TOTP verification request:', { userId, token })
+    console.log('TOTP options:', otplib.authenticator.options)
+
     if (!userId || !token) {
+      console.error('Missing required parameters:', { userId: !!userId, token: !!token })
       return new Response(
         JSON.stringify({ error: 'Missing userId or token' }),
         { 
@@ -55,6 +59,7 @@ serve(async (req) => {
     }
 
     if (!profile.mfa_enabled || !profile.mfa_secret) {
+      console.error('MFA not enabled for user:', { mfa_enabled: profile.mfa_enabled, has_secret: !!profile.mfa_secret })
       return new Response(
         JSON.stringify({ error: 'MFA not enabled for user' }),
         { 
@@ -67,6 +72,7 @@ serve(async (req) => {
     console.log('Verifying TOTP login for user:', userId)
     console.log('Token received:', token)
     console.log('Secret exists:', !!profile.mfa_secret)
+    console.log('Secret (first 8 chars):', profile.mfa_secret.substring(0, 8) + '...')
     
     // Verify TOTP token
     const isValid = otplib.authenticator.verify({
@@ -75,6 +81,7 @@ serve(async (req) => {
     })
     
     console.log('TOTP verification result:', isValid)
+    console.log('Current timestamp:', Math.floor(Date.now() / 1000))
 
     return new Response(
       JSON.stringify({ valid: isValid }),
