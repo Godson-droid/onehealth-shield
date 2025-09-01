@@ -5,11 +5,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, QrCode, Key, Smartphone, Copy, Check, ArrowRight } from "lucide-react";
+import { Shield, QrCode, Key, Smartphone, Copy, Check, ArrowRight, AlertCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import QRCodeLib from "qrcode";
+import { authenticator } from "otplib";
 
 const MFASetup = () => {
   const [qrCodeGenerated, setQrCodeGenerated] = useState(false);
@@ -18,8 +19,18 @@ const MFASetup = () => {
   const [secretCopied, setSecretCopied] = useState(false);
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Configure client-side TOTP to match server
+  authenticator.options = {
+    step: 60,
+    window: 2,
+    digits: 6,
+    algorithm: 'sha1' as any,
+    encoding: 'base32' as any
+  };
 
   // Generate a proper secret key for TOTP
   const generateSecret = () => {
@@ -95,14 +106,36 @@ const MFASetup = () => {
 
       if (verificationCode.length !== 6) {
         toast({
-          title: "Error",
+          title: "Error", 
           description: "Please enter a 6-digit verification code",
           variant: "destructive",
         });
         return;
       }
 
+      // Generate client-side token for comparison
+      const clientToken = authenticator.generate(secretKey);
+      const timestamp = Math.floor(Date.now() / 1000);
+      
+      console.log('MFA Setup Debug Info:');
+      console.log('User ID:', user.id);
+      console.log('Secret Key (first 8):', secretKey.substring(0, 8) + '...');
+      console.log('Entered Code:', verificationCode);
+      console.log('Expected Code (client):', clientToken);
+      console.log('Timestamp:', timestamp);
+      console.log('QR URL:', qrCodeUrl);
+      
+      setDebugInfo({
+        userId: user.id,
+        secretKey: secretKey.substring(0, 8) + '...',
+        enteredCode: verificationCode,
+        clientToken,
+        timestamp,
+        qrUrl: qrCodeUrl
+      });
+
       // Verify TOTP code and enable MFA
+      console.log('Calling setup-totp function...');
       const { data, error } = await supabase.functions.invoke('setup-totp', {
         body: { 
           userId: user.id,
@@ -111,10 +144,22 @@ const MFASetup = () => {
         }
       });
 
-      if (error || !data.success) {
+      console.log('Setup TOTP Response:', { data, error });
+
+      if (error) {
+        console.error('Edge function error:', error);
         toast({
-          title: "Error",
-          description: "Invalid verification code. Please try again.",
+          title: "Function Error",
+          description: `Edge function failed: ${error.message}`,
+          variant: "destructive",
+        });
+        return;
+      }
+
+      if (!data?.success) {
+        toast({
+          title: "Verification Failed",
+          description: data?.error || "Invalid verification code. Please try again.",
           variant: "destructive",
         });
         return;
@@ -127,9 +172,10 @@ const MFASetup = () => {
 
       navigate('/dashboard');
     } catch (error) {
+      console.error('MFA Setup Error:', error);
       toast({
-        title: "Error",
-        description: "An unexpected error occurred",
+        title: "Setup Error",
+        description: `An unexpected error occurred: ${error}`,
         variant: "destructive",
       });
     } finally {
@@ -292,11 +338,30 @@ const MFASetup = () => {
                   />
                 </div>
 
-                <Button type="submit" className="w-full shadow-medical" size="lg" disabled={loading}>
-                  {loading ? "Verifying..." : "Verify & Complete Setup"}
-                  <ArrowRight className="ml-2 h-4 w-4" />
-                </Button>
-              </form>
+              <Button type="submit" className="w-full shadow-medical" size="lg" disabled={loading}>
+                {loading ? "Verifying..." : "Verify & Complete Setup"}
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </form>
+
+            {/* Debug Info */}
+            {debugInfo && (
+              <div className="mt-4 p-3 bg-muted/50 rounded-lg">
+                <div className="flex items-start space-x-2">
+                  <AlertCircle className="h-4 w-4 text-muted-foreground mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-medium">Debug Info:</p>
+                    <div className="text-xs text-muted-foreground font-mono">
+                      <div>User: {debugInfo.userId}</div>
+                      <div>Secret: {debugInfo.secretKey}</div>
+                      <div>Your code: {debugInfo.enteredCode}</div>
+                      <div>Expected: {debugInfo.clientToken}</div>
+                      <div>Time: {debugInfo.timestamp}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
             </div>
 
             {/* Security Notice */}

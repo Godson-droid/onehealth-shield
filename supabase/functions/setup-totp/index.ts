@@ -1,16 +1,20 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-import otplib from "https://esm.sh/otplib@12.0.1"
+import { authenticator } from "https://esm.sh/otplib@12.0.1"
+
+console.log('Setup TOTP function starting...')
 
 // Configure TOTP settings to match standard authenticator apps
-otplib.authenticator.options = {
+authenticator.options = {
   step: 60,        // 60-second time window
   window: 2,       // Allow 2 steps of tolerance (±120 seconds)
   digits: 6,       // 6-digit codes
   algorithm: 'sha1', // SHA1 algorithm (standard)
   encoding: 'base32' // Base32 encoding
 }
+
+console.log('TOTP authenticator configured:', authenticator.options)
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -40,10 +44,15 @@ serve(async (req) => {
     console.log('Verifying TOTP setup for user:', userId)
     console.log('Token received:', token)
     console.log('Secret (first 8 chars):', secret.substring(0, 8) + '...')
-    console.log('TOTP options:', otplib.authenticator.options)
+    console.log('TOTP options:', authenticator.options)
+    
+    // Generate expected token for comparison (debugging)
+    const expectedToken = authenticator.generate(secret)
+    console.log('Expected current token:', expectedToken)
+    console.log('Current timestamp:', Math.floor(Date.now() / 1000))
     
     // Verify TOTP token against secret
-    const isValid = otplib.authenticator.verify({
+    const isValid = authenticator.verify({
       token: token,
       secret: secret
     })
