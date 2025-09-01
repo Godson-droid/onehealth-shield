@@ -3,12 +3,12 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// https://vitejs.dev/config/
 export default defineConfig(({ mode }) => ({
+  // Add this line to set the base URL for assets
+  base: '/',
   server: {
     host: "::",
     port: 8080,
-    // Add this to allow requests from your Render URL
     allowedHosts: [
       'onehealth-shield.onrender.com'
     ]
