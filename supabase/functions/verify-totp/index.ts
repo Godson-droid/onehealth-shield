@@ -1,20 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-import { authenticator } from "https://esm.sh/otplib@12.0.1"
+import * as OTPAuth from "https://esm.sh/otpauth@9.2.3"
 
 console.log('Verify TOTP function starting...')
 
-// Configure TOTP settings to match standard authenticator apps
-authenticator.options = {
-  step: 60,        // 60-second time window
-  window: 2,       // Allow 2 steps of tolerance (±120 seconds)
-  digits: 6,       // 6-digit codes
-  algorithm: 'sha1', // SHA1 algorithm (standard)
-  encoding: 'base32' // Base32 encoding
-}
+// Create TOTP instance with standard settings
+const createTOTP = (secret: string) => {
+  return new OTPAuth.TOTP({
+    issuer: "OneHealthShield",
+    label: "OneHealthShield", 
+    algorithm: "SHA1",
+    digits: 6,
+    period: 60,
+    secret: secret,
+  });
+};
 
-console.log('TOTP authenticator configured:', authenticator.options)
+console.log('TOTP configuration: 60s period, SHA1, 6 digits')
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -31,7 +34,7 @@ serve(async (req) => {
     const { userId, token } = await req.json()
 
     console.log('Received TOTP verification request:', { userId, token })
-    console.log('TOTP options:', authenticator.options)
+    console.log('TOTP configuration: 60s period, SHA1, 6 digits')
 
     if (!userId || !token) {
       console.error('Missing required parameters:', { userId: !!userId, token: !!token })
@@ -78,26 +81,75 @@ serve(async (req) => {
     console.log('Secret exists:', !!profile.mfa_secret)
     console.log('Secret (first 8 chars):', profile.mfa_secret.substring(0, 8) + '...')
     
-    // Generate expected token for comparison (debugging)
-    const expectedToken = authenticator.generate(profile.mfa_secret)
-    console.log('Expected current token:', expectedToken)
-    
-    // Verify TOTP token
-    const isValid = authenticator.verify({
-      token: token,
-      secret: profile.mfa_secret
-    })
-    
-    console.log('TOTP verification result:', isValid)
-    console.log('Current timestamp:', Math.floor(Date.now() / 1000))
-
-    return new Response(
-      JSON.stringify({ valid: isValid }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    try {
+      // Create TOTP instance
+      const totp = createTOTP(profile.mfa_secret)
+      
+      // Generate expected token for comparison (debugging)
+      const expectedToken = totp.generate()
+      const currentTime = Math.floor(Date.now() / 1000)
+      console.log('Expected current token:', expectedToken)
+      console.log('Current timestamp:', currentTime)
+      console.log('Current period:', Math.floor(currentTime / 60))
+      
+      // Verify TOTP token with tolerance
+      const isValid = totp.validate({ token: token, window: 2 }) !== null
+      
+      console.log('TOTP verification result:', isValid)
+      
+      if (!isValid) {
+        // Try generating tokens for current and adjacent time windows
+        const currentWindow = Math.floor(currentTime / 60)
+        const prevToken = new OTPAuth.TOTP({
+          issuer: "OneHealthShield",
+          algorithm: "SHA1", 
+          digits: 6,
+          period: 60,
+          secret: profile.mfa_secret,
+        }).generate({ timestamp: (currentWindow - 1) * 60 * 1000 })
+        
+        const nextToken = new OTPAuth.TOTP({
+          issuer: "OneHealthShield",
+          algorithm: "SHA1",
+          digits: 6, 
+          period: 60,
+          secret: profile.mfa_secret,
+        }).generate({ timestamp: (currentWindow + 1) * 60 * 1000 })
+        
+        console.log('Previous window token:', prevToken)
+        console.log('Next window token:', nextToken)
+        console.log('Token matches any window:', [expectedToken, prevToken, nextToken].includes(token))
       }
-    )
+      
+      return new Response(
+        JSON.stringify({ 
+          valid: isValid,
+          debug: {
+            received: token,
+            expected: expectedToken,
+            timestamp: currentTime
+          }
+        }),
+        {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    } catch (totpError) {
+      console.error('TOTP generation/verification error:', totpError)
+      return new Response(
+        JSON.stringify({ 
+          valid: false, 
+          error: 'TOTP verification failed', 
+          details: totpError.message 
+        }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      )
+    }
+
 
   } catch (error) {
     console.error('Error verifying TOTP:', error)

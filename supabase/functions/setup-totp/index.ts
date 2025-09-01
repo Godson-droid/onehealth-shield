@@ -1,20 +1,23 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-import { authenticator } from "https://esm.sh/otplib@12.0.1"
+import * as OTPAuth from "https://esm.sh/otpauth@9.2.3"
 
 console.log('Setup TOTP function starting...')
 
-// Configure TOTP settings to match standard authenticator apps
-authenticator.options = {
-  step: 60,        // 60-second time window
-  window: 2,       // Allow 2 steps of tolerance (±120 seconds)
-  digits: 6,       // 6-digit codes
-  algorithm: 'sha1', // SHA1 algorithm (standard)
-  encoding: 'base32' // Base32 encoding
-}
+// Create TOTP instance with standard settings
+const createTOTP = (secret: string) => {
+  return new OTPAuth.TOTP({
+    issuer: "OneHealthShield",
+    label: "OneHealthShield",
+    algorithm: "SHA1",
+    digits: 6,
+    period: 60,
+    secret: secret,
+  });
+};
 
-console.log('TOTP authenticator configured:', authenticator.options)
+console.log('TOTP configuration: 60s period, SHA1, 6 digits')
 
 const supabase = createClient(
   Deno.env.get('SUPABASE_URL') ?? '',
@@ -44,26 +47,69 @@ serve(async (req) => {
     console.log('Verifying TOTP setup for user:', userId)
     console.log('Token received:', token)
     console.log('Secret (first 8 chars):', secret.substring(0, 8) + '...')
-    console.log('TOTP options:', authenticator.options)
     
-    // Generate expected token for comparison (debugging)
-    const expectedToken = authenticator.generate(secret)
-    console.log('Expected current token:', expectedToken)
-    console.log('Current timestamp:', Math.floor(Date.now() / 1000))
-    
-    // Verify TOTP token against secret
-    const isValid = authenticator.verify({
-      token: token,
-      secret: secret
-    })
-    
-    console.log('TOTP verification result:', isValid)
+    try {
+      // Create TOTP instance
+      const totp = createTOTP(secret)
+      
+      // Generate expected token for comparison (debugging)
+      const expectedToken = totp.generate()
+      const currentTime = Math.floor(Date.now() / 1000)
+      console.log('Expected current token:', expectedToken)
+      console.log('Current timestamp:', currentTime)
+      console.log('Current period:', Math.floor(currentTime / 60))
+      
+      // Verify TOTP token with tolerance
+      const isValid = totp.validate({ token: token, window: 2 }) !== null
+      
+      console.log('TOTP verification result:', isValid)
+      
+      if (!isValid) {
+        // Try generating tokens for current and adjacent time windows
+        const currentWindow = Math.floor(currentTime / 60)
+        const prevToken = new OTPAuth.TOTP({
+          issuer: "OneHealthShield",
+          algorithm: "SHA1",
+          digits: 6,
+          period: 60,
+          secret: secret,
+        }).generate({ timestamp: (currentWindow - 1) * 60 * 1000 })
+        
+        const nextToken = new OTPAuth.TOTP({
+          issuer: "OneHealthShield", 
+          algorithm: "SHA1",
+          digits: 6,
+          period: 60,
+          secret: secret,
+        }).generate({ timestamp: (currentWindow + 1) * 60 * 1000 })
+        
+        console.log('Previous window token:', prevToken)
+        console.log('Next window token:', nextToken)
+        console.log('Token matches any window:', [expectedToken, prevToken, nextToken].includes(token))
+      }
 
-    if (!isValid) {
+      if (!isValid) {
+        return new Response(
+          JSON.stringify({ 
+            error: 'Invalid verification code',
+            debug: {
+              received: token,
+              expected: expectedToken,
+              timestamp: currentTime
+            }
+          }),
+          { 
+            status: 400, 
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        )
+      }
+    } catch (totpError) {
+      console.error('TOTP generation/verification error:', totpError)
       return new Response(
-        JSON.stringify({ error: 'Invalid verification code' }),
+        JSON.stringify({ error: 'TOTP verification failed', details: totpError.message }),
         { 
-          status: 400, 
+          status: 500, 
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
       )

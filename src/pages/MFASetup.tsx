@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Shield, QrCode, Key, Smartphone, Copy, Check, ArrowRight, AlertCircle } from "lucide-react";
+import { Shield, QrCode, Key, Smartphone, Copy, Check, ArrowRight, AlertCircle, RefreshCw } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
@@ -20,10 +20,11 @@ const MFASetup = () => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(false);
   const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [timeRemaining, setTimeRemaining] = useState(60);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Configure client-side TOTP to match server
+  // Configure client-side TOTP to match server (60s periods)
   authenticator.options = {
     step: 60,
     window: 2,
@@ -58,6 +59,17 @@ const MFASetup = () => {
 
     checkUser();
   }, [navigate]);
+
+  // Timer for TOTP refresh
+  useEffect(() => {
+    const timer = setInterval(() => {
+      const now = Math.floor(Date.now() / 1000);
+      const remaining = 60 - (now % 60);
+      setTimeRemaining(remaining);
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     // Generate QR code when user data is available
@@ -322,26 +334,35 @@ const MFASetup = () => {
             {/* Verification */}
             <div className="mt-8 pt-6 border-t">
               <form onSubmit={handleVerifyMFA} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="verification">Verification Code</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Enter the 6-digit code from your authenticator app
-                  </p>
-                  <Input
-                    id="verification"
-                    value={verificationCode}
-                    onChange={(e) => setVerificationCode(e.target.value)}
-                    placeholder="000000"
-                    maxLength={6}
-                    className="text-center text-lg font-mono tracking-widest"
-                    required
-                  />
-                </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="verification">Verification Code</Label>
+                    <p className="text-sm text-muted-foreground">
+                      Enter the 6-digit code from your authenticator app
+                    </p>
+                    <Input
+                      id="verification"
+                      value={verificationCode}
+                      onChange={(e) => setVerificationCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                      placeholder="000000"
+                      maxLength={6}
+                      className="text-center text-2xl font-mono tracking-widest"
+                      autoComplete="one-time-code"
+                      autoFocus
+                      required
+                    />
+                    <div className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>Code refreshes every 60 seconds</span>
+                      <div className="flex items-center space-x-1">
+                        <RefreshCw className="h-3 w-3" />
+                        <span>{timeRemaining}s</span>
+                      </div>
+                    </div>
+                  </div>
 
-              <Button type="submit" className="w-full shadow-medical" size="lg" disabled={loading}>
-                {loading ? "Verifying..." : "Verify & Complete Setup"}
-                <ArrowRight className="ml-2 h-4 w-4" />
-              </Button>
+                <Button type="submit" className="w-full shadow-medical" size="lg" disabled={loading || verificationCode.length !== 6}>
+                  {loading ? "Verifying..." : "Verify & Complete Setup"}
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Button>
             </form>
 
             {/* Debug Info */}
