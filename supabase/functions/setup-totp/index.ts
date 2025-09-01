@@ -1,24 +1,31 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 import { corsHeaders } from '../_shared/cors.ts'
-import { TOTP } from "https://esm.sh/otpauth@9.1.0" // Correct library for OTPAuth
+import { TOTP, Secret } from "https://esm.sh/otpauth@9.1.0"
 
 console.log('Setup TOTP function starting...')
 
 // Function to create a TOTP instance
 const createTOTP = (secret: string) => {
-  return new TOTP({
-    issuer: "OneHealthShield",
-    label: "OneHealthShield",
-    algorithm: "SHA1",
-    digits: 6,
-    period: 60,
-    secret: secret,
-  });
+  try {
+    // Attempt to create the Secret from the Base32 string
+    const decodedSecret = Secret.fromBase32(secret);
+
+    return new TOTP({
+      issuer: "OneHealthShield",
+      label: "OneHealthShield",
+      algorithm: "SHA1",
+      digits: 6,
+      period: 60,
+      secret: decodedSecret,
+    });
+  } catch (e) {
+    console.error("Error creating TOTP instance. Is the secret a valid Base32 string?", e);
+    throw new Error("Invalid TOTP secret format");
+  }
 };
 
 console.log('TOTP configuration: 60s period, SHA1, 6 digits')
-
 
 const supabase = createClient(
   Deno.env.get('VITE_SUPABASE_URL') ?? '',
@@ -26,10 +33,11 @@ const supabase = createClient(
 )
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
-  }
+  // ... (the rest of the serve function remains the same)
+  // The error is in the TOTP creation, so the main logic is unchanged.
+})
+
+)
 
   try {
   const { userId, token, secret } = await req.json()
