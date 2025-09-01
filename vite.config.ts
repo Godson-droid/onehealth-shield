@@ -3,13 +3,12 @@ import react from "@vitejs/plugin-react-swc";
 import path from "path";
 import { componentTagger } from "lovable-tagger";
 
-// https://vitejs.dev/config/
 export default defineConfig({
   plugins: [react()],
   server: {
-    // Add this configuration
+    // Corrected to use an array []
     allowedHosts: [
       'onehealth-shield.onrender.com'
-    },
-  },
-}));
+    ]
+  }
+})
