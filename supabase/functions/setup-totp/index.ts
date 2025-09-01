@@ -21,7 +21,7 @@ console.log('TOTP configuration: 60s period, SHA1, 6 digits')
 
 
 const supabase = createClient(
-  Deno.env.get('SUPABASE_URL') ?? '',
+  Deno.env.get('VITE_SUPABASE_URL') ?? '',
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 )
 
