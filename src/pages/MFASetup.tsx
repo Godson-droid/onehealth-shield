@@ -10,7 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import QRCodeLib from "qrcode";
-import { authenticator } from "otplib";
+// Removed otplib import to avoid Buffer errors
 
 const MFASetup = () => {
   const [qrCodeGenerated, setQrCodeGenerated] = useState(false);
@@ -24,13 +24,7 @@ const MFASetup = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Configure client-side TOTP to match server (60s periods)
-  authenticator.options = {
-    step: 60,
-    window: 2,
-    digits: 6,
-    algorithm: 'sha1' as any
-  };
+  // TOTP settings (60s periods, SHA1, 6 digits) - configured on server
 
   // Generate a proper secret key for TOTP
   const generateSecret = () => {
@@ -124,15 +118,13 @@ const MFASetup = () => {
         return;
       }
 
-      // Generate client-side token for comparison
-      const clientToken = authenticator.generate(secretKey);
+      // Removed client-side token generation to avoid Buffer issues
       const timestamp = Math.floor(Date.now() / 1000);
       
       console.log('MFA Setup Debug Info:');
       console.log('User ID:', user.id);
       console.log('Secret Key (first 8):', secretKey.substring(0, 8) + '...');
       console.log('Entered Code:', verificationCode);
-      console.log('Expected Code (client):', clientToken);
       console.log('Timestamp:', timestamp);
       console.log('QR URL:', qrCodeUrl);
       
@@ -140,7 +132,6 @@ const MFASetup = () => {
         userId: user.id,
         secretKey: secretKey.substring(0, 8) + '...',
         enteredCode: verificationCode,
-        clientToken,
         timestamp,
         qrUrl: qrCodeUrl
       });
@@ -375,7 +366,6 @@ const MFASetup = () => {
                       <div>User: {debugInfo.userId}</div>
                       <div>Secret: {debugInfo.secretKey}</div>
                       <div>Your code: {debugInfo.enteredCode}</div>
-                      <div>Expected: {debugInfo.clientToken}</div>
                       <div>Time: {debugInfo.timestamp}</div>
                     </div>
                   </div>

@@ -8,7 +8,7 @@ import { Shield, Key, ArrowRight, AlertCircle, RefreshCw } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { authenticator } from "otplib";
+// Removed otplib import to avoid Buffer errors
 
 const MFAVerification = () => {
   const [verificationCode, setVerificationCode] = useState("");
@@ -20,13 +20,7 @@ const MFAVerification = () => {
   const location = useLocation();
   const { toast } = useToast();
 
-  // Configure client-side TOTP to match server (60s periods)
-  authenticator.options = {
-    step: 60,
-    window: 2,
-    digits: 6,
-    algorithm: 'sha1' as any
-  };
+  // TOTP settings (60s periods, SHA1, 6 digits) - configured on server
 
   useEffect(() => {
     // Check if user came from login
