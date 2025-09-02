@@ -29,8 +29,7 @@ const MFASetup = () => {
     step: 60,
     window: 2,
     digits: 6,
-    algorithm: 'sha1' as any,
-    encoding: 'base32' as any
+    algorithm: 'sha1' as any
   };
 
   // Generate a proper secret key for TOTP

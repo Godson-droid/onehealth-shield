@@ -20,13 +20,12 @@ const MFAVerification = () => {
   const location = useLocation();
   const { toast } = useToast();
 
-  // Configure client-side TOTP to match server
+  // Configure client-side TOTP to match server (60s periods)
   authenticator.options = {
     step: 60,
     window: 2,
     digits: 6,
-    algorithm: 'sha1' as any,
-    encoding: 'base32' as any
+    algorithm: 'sha1' as any
   };
 
   useEffect(() => {
