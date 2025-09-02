@@ -36,8 +36,9 @@ const RecordModal = ({ open, onOpenChange, onRecordCreated }: RecordModalProps) 
       }
 
       // Call the blockchain service to create record
-      const response = await supabase.functions.invoke('blockchain-service', {
+      const { data, error } = await supabase.functions.invoke('blockchain-service', {
         body: {
+          action: 'create_record',
           record_type: recordType,
           patient_name: patientName,
           location: location,
@@ -46,13 +47,13 @@ const RecordModal = ({ open, onOpenChange, onRecordCreated }: RecordModalProps) 
         }
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (error) {
+        throw new Error(error.message || "Failed to create record");
       }
 
       toast({
         title: "Record Created Successfully",
-        description: `Your health record has been encrypted and added to blockchain block #${response.data.block_number}`,
+        description: `Your health record has been encrypted and added to blockchain block #${data.block_number}`,
       });
 
       // Reset form

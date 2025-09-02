@@ -36,11 +36,24 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseKey)
     const { method } = req
     const url = new URL(req.url)
-    const action = url.searchParams.get('action')
+    let action = url.searchParams.get('action')
+    let requestBody = null
+    
+    // Parse body once and reuse
+    if (method === 'POST') {
+      try {
+        requestBody = await req.json()
+        if (!action && requestBody.action) {
+          action = requestBody.action
+        }
+      } catch (error) {
+        console.error('Error parsing request body:', error)
+      }
+    }
 
     if (method === 'POST' && action === 'create_record') {
-      return await handleCreateRecord(req, supabase)
-    } else if (method === 'GET' && action === 'network_stats') {
+      return await handleCreateRecord(requestBody, supabase)
+    } else if ((method === 'GET' || method === 'POST') && action === 'network_stats') {
       return await handleNetworkStats(supabase)
     } else if (method === 'GET' && action === 'verification_status') {
       const recordId = url.searchParams.get('record_id')
@@ -60,8 +73,10 @@ Deno.serve(async (req) => {
   }
 })
 
-async function handleCreateRecord(req: Request, supabase: any) {
-  const { record_type, patient_name, location, description, user_id } = await req.json()
+async function handleCreateRecord(requestBody: any, supabase: any) {
+  const { record_type, patient_name, location, description, user_id } = requestBody
+
+  console.log('Creating record:', { record_type, patient_name, location, user_id })
 
   // Step 1: Encrypt the health data using AES-256
   const healthData = JSON.stringify({
@@ -90,11 +105,16 @@ async function handleCreateRecord(req: Request, supabase: any) {
     .single()
 
   if (recordError) {
+    console.error('Database error:', recordError)
     throw new Error(`Failed to create health record: ${recordError.message}`)
   }
 
+  console.log('Record created:', record.id)
+
   // Step 3: Start blockchain mining process
   const miningResult = await mineNewBlock(supabase, record)
+
+  console.log('Mining result:', miningResult)
 
   // Step 4: Update health record with blockchain info
   const { error: updateError } = await supabase
@@ -108,6 +128,7 @@ async function handleCreateRecord(req: Request, supabase: any) {
     .eq('id', record.id)
 
   if (updateError) {
+    console.error('Update error:', updateError)
     throw new Error(`Failed to update health record: ${updateError.message}`)
   }
 
