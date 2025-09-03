@@ -94,6 +94,7 @@ export type Database = {
           description: string | null
           encrypted_data: string
           id: string
+          is_public: boolean
           location: string
           patient_name: string
           record_type: string
@@ -109,6 +110,7 @@ export type Database = {
           description?: string | null
           encrypted_data: string
           id?: string
+          is_public?: boolean
           location: string
           patient_name: string
           record_type: string
@@ -124,6 +126,7 @@ export type Database = {
           description?: string | null
           encrypted_data?: string
           id?: string
+          is_public?: boolean
           location?: string
           patient_name?: string
           record_type?: string

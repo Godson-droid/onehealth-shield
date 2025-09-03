@@ -74,9 +74,9 @@ Deno.serve(async (req) => {
 })
 
 async function handleCreateRecord(requestBody: any, supabase: any) {
-  const { record_type, patient_name, location, description, user_id } = requestBody
+  const { record_type, patient_name, location, description, user_id, is_public = false } = requestBody
 
-  console.log('Creating record:', { record_type, patient_name, location, user_id })
+  console.log('Creating record:', { record_type, patient_name, location, user_id, is_public })
 
   // Generate unique identifier based on record type
   const generateUniqueId = (type: string, name: string) => {
@@ -110,7 +110,8 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
       location,
       description,
       encrypted_data,
-      verification_status: 'pending'
+      verification_status: 'pending',
+      is_public
     })
     .select()
     .single()

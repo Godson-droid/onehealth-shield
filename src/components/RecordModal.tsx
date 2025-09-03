@@ -5,8 +5,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
-import { Heart, Stethoscope, Leaf, Shield, CheckCircle } from "lucide-react";
+import { Heart, Stethoscope, Leaf, Shield, CheckCircle, Users, Lock } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -21,6 +22,7 @@ const RecordModal = ({ open, onOpenChange, onRecordCreated }: RecordModalProps) 
   const [patientName, setPatientName] = useState("");
   const [location, setLocation] = useState("");
   const [description, setDescription] = useState("");
+  const [isPublic, setIsPublic] = useState(false);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
@@ -43,7 +45,8 @@ const RecordModal = ({ open, onOpenChange, onRecordCreated }: RecordModalProps) 
           patient_name: patientName,
           location: location,
           description: description,
-          user_id: user.id
+          user_id: user.id,
+          is_public: isPublic
         }
       });
 
@@ -61,6 +64,7 @@ const RecordModal = ({ open, onOpenChange, onRecordCreated }: RecordModalProps) 
       setPatientName("");
       setLocation("");
       setDescription("");
+      setIsPublic(false);
       onOpenChange(false);
       
       // Refresh dashboard data
@@ -161,6 +165,34 @@ const RecordModal = ({ open, onOpenChange, onRecordCreated }: RecordModalProps) 
                   rows={4}
                   required
                 />
+              </div>
+
+              <div className="space-y-3">
+                <Label>Privacy Settings</Label>
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="flex items-center space-x-3">
+                    {isPublic ? (
+                      <Users className="h-4 w-4 text-blue-500" />
+                    ) : (
+                      <Lock className="h-4 w-4 text-gray-500" />
+                    )}
+                    <div>
+                      <p className="text-sm font-medium">
+                        {isPublic ? "Public Record" : "Private Record"}
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {isPublic 
+                          ? "Accessible to researchers and health providers" 
+                          : "Only visible to you"
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <Switch 
+                    checked={isPublic} 
+                    onCheckedChange={setIsPublic}
+                  />
+                </div>
               </div>
 
               <div className="bg-accent-light p-3 rounded-lg">
