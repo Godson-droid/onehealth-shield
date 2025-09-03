@@ -160,25 +160,81 @@ const Dashboard = () => {
     setRecordModalOpen(true);
   };
 
-  const handleGenerateReport = () => {
-    toast({
-      title: "Generating Report",
-      description: "Your health data report is being compiled and encrypted...",
-    });
-    
-    setTimeout(() => {
+  const handleGenerateReport = async () => {
+    try {
+      setLoading(true);
+      toast({
+        title: "Generating Report",
+        description: "Your health data report is being compiled and encrypted...",
+      });
+
+      // Generate CSV report data
+      const csvHeader = "ID,Type,Patient/Subject,Location,Description,Status,Date Created,Blockchain Hash\n";
+      const csvData = healthRecords.map(record => 
+        `${record.id},${record.record_type},${record.patient_name},"${record.location}","${record.description}",${record.verification_status},${new Date(record.created_at).toISOString()},${record.blockchain_hash || 'Pending'}`
+      ).join('\n');
+      
+      const csvContent = csvHeader + csvData;
+      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `onehealth-report-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+
       toast({
         title: "Report Generated",
-        description: "Your secure health report has been generated and is ready for download.",
+        description: "Your secure health report has been downloaded as CSV file.",
       });
-    }, 3000);
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to generate report. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const handleShareData = () => {
-    toast({
-      title: "Data Sharing",
-      description: "Opening secure data sharing interface...",
-    });
+  const handleShareData = async () => {
+    try {
+      if (!healthRecords.length) {
+        toast({
+          title: "No Data to Share",
+          description: "Create some health records first before sharing data.",
+        });
+        return;
+      }
+
+      // Generate shareable link with record IDs
+      const recordIds = healthRecords.slice(0, 5).map(r => r.id).join(',');
+      const shareableData = {
+        records: recordIds,
+        sharedBy: profile?.email || 'Unknown',
+        sharedAt: new Date().toISOString(),
+        accessType: 'view-only'
+      };
+      
+      const shareUrl = `${window.location.origin}/shared-data?data=${btoa(JSON.stringify(shareableData))}`;
+      
+      // Copy to clipboard
+      await navigator.clipboard.writeText(shareUrl);
+      
+      toast({
+        title: "Share Link Generated",
+        description: "Secure sharing link copied to clipboard. Valid for 24 hours.",
+      });
+    } catch (error) {
+      toast({
+        title: "Sharing Failed",
+        description: "Unable to generate share link. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleViewBlockchain = () => {

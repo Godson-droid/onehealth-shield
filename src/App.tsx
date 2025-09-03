@@ -8,6 +8,7 @@ import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
 import MFASetup from "./pages/MFASetup";
 import MFAVerification from "./pages/MFAVerification";
+import SharedData from "./pages/SharedData";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ const App = () => (
           <Route path="/mfa-setup" element={<MFASetup />} />
           <Route path="/mfa-verify" element={<MFAVerification />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/shared-data" element={<SharedData />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

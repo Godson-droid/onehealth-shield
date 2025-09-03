@@ -1,11 +1,8 @@
-cat > onehealth-shield-main/vercel.json << EOF
 {
-"rewrites": [
-{
-"source": "/(.*)",
-"destination": "/index.html"
+  "rewrites": [
+    {
+      "source": "/(.*)",
+      "destination": "/index.html"
+    }
+  ]
 }
-]
-}
-EOF
-</execute_bash>

@@ -78,8 +78,19 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
 
   console.log('Creating record:', { record_type, patient_name, location, user_id })
 
+  // Generate unique identifier based on record type
+  const generateUniqueId = (type: string, name: string) => {
+    const prefix = type === 'human' ? 'HUM' : type === 'animal' ? 'ANM' : 'ENV';
+    const timestamp = Date.now().toString().slice(-6);
+    const nameHash = name.replace(/\s+/g, '').substring(0, 3).toUpperCase();
+    return `${prefix}-${nameHash}-${timestamp}`;
+  };
+
+  const uniqueId = generateUniqueId(record_type, patient_name);
+
   // Step 1: Encrypt the health data using AES-256
   const healthData = JSON.stringify({
+    unique_id: uniqueId,
     record_type,
     patient_name,
     location,
@@ -95,7 +106,7 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
     .insert({
       user_id,
       record_type,
-      patient_name,
+      patient_name: `${uniqueId} - ${patient_name}`,
       location,
       description,
       encrypted_data,
