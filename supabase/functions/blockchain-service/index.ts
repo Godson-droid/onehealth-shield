@@ -78,85 +78,104 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
 
   console.log('Creating record:', { record_type, patient_name, location, user_id, is_public })
 
-  // Generate unique identifier based on record type
-  const generateUniqueId = (type: string, name: string) => {
-    const prefix = type === 'human' ? 'HUM' : type === 'animal' ? 'ANM' : 'ENV';
-    const timestamp = Date.now().toString().slice(-6);
-    const nameHash = name.replace(/\s+/g, '').substring(0, 3).toUpperCase();
-    return `${prefix}-${nameHash}-${timestamp}`;
-  };
+  try {
+    // Generate unique identifier based on record type
+    const generateUniqueId = (type: string, name: string) => {
+      const prefix = type === 'human' ? 'HUM' : type === 'animal' ? 'ANM' : 'ENV';
+      const timestamp = Date.now().toString().slice(-6);
+      const nameHash = name.replace(/\s+/g, '').substring(0, 3).toUpperCase();
+      return `${prefix}-${nameHash}-${timestamp}`;
+    };
 
-  const uniqueId = generateUniqueId(record_type, patient_name);
+    const uniqueId = generateUniqueId(record_type, patient_name);
 
-  // Step 1: Encrypt the health data using AES-256
-  const healthData = JSON.stringify({
-    unique_id: uniqueId,
-    record_type,
-    patient_name,
-    location,
-    description,
-    timestamp: new Date().toISOString()
-  })
-
-  const encrypted_data = await encryptData(healthData)
-
-  // Step 2: Create health record in database using service role to bypass RLS
-  // Use admin client with service role key to insert the record
-  const serviceSupabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '')
-  
-  const { data: record, error: recordError } = await serviceSupabase
-    .from('health_records')
-    .insert({
-      user_id,
+    // Step 1: Encrypt the health data using AES-256
+    const healthData = JSON.stringify({
+      unique_id: uniqueId,
       record_type,
-      patient_name: `${uniqueId} - ${patient_name}`,
+      patient_name,
       location,
       description,
-      encrypted_data,
-      verification_status: 'pending',
-      is_public
+      timestamp: new Date().toISOString()
     })
-    .select()
-    .single()
 
-  if (recordError) {
-    console.error('Database error:', recordError)
-    throw new Error(`Failed to create health record: ${recordError.message}`)
+    console.log('Encrypting health data...')
+    const encrypted_data = await encryptData(healthData)
+    console.log('Health data encrypted successfully')
+
+    // Step 2: Create health record in database using service role to bypass RLS
+    console.log('Creating service role client...')
+    const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    console.log('Service role key exists:', !!serviceRoleKey)
+    
+    if (!serviceRoleKey) {
+      throw new Error('Service role key not available')
+    }
+
+    const serviceSupabase = createClient(supabaseUrl, serviceRoleKey)
+    
+    console.log('Inserting record into database...')
+    const { data: record, error: recordError } = await serviceSupabase
+      .from('health_records')
+      .insert({
+        user_id,
+        record_type,
+        patient_name: `${uniqueId} - ${patient_name}`,
+        location,
+        description,
+        encrypted_data,
+        verification_status: 'pending',
+        is_public
+      })
+      .select()
+      .single()
+
+    if (recordError) {
+      console.error('Database error:', recordError)
+      throw new Error(`Failed to create health record: ${recordError.message}`)
+    }
+
+    console.log('Record created successfully:', record.id)
+
+    // Step 3: Start blockchain mining process
+    console.log('Starting blockchain mining...')
+    const miningResult = await mineNewBlock(supabase, record)
+    console.log('Mining completed:', miningResult)
+
+    // Step 4: Update health record with blockchain info
+    console.log('Updating record with blockchain info...')
+    const { error: updateError } = await serviceSupabase
+      .from('health_records')
+      .update({
+        blockchain_hash: miningResult.block_hash,
+        transaction_id: miningResult.transaction_id,
+        block_number: miningResult.block_number,
+        verification_status: 'verified'
+      })
+      .eq('id', record.id)
+
+    if (updateError) {
+      console.error('Update error:', updateError)
+      throw new Error(`Failed to update health record: ${updateError.message}`)
+    }
+
+    console.log('Record verification completed')
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        record_id: record.id,
+        blockchain_hash: miningResult.block_hash,
+        transaction_id: miningResult.transaction_id,
+        block_number: miningResult.block_number
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    )
+
+  } catch (error) {
+    console.error('Error in handleCreateRecord:', error)
+    throw error
   }
-
-  console.log('Record created:', record.id)
-
-  // Step 3: Start blockchain mining process
-  const miningResult = await mineNewBlock(supabase, record)
-
-  console.log('Mining result:', miningResult)
-
-  // Step 4: Update health record with blockchain info
-  const { error: updateError } = await supabase
-    .from('health_records')
-    .update({
-      blockchain_hash: miningResult.block_hash,
-      transaction_id: miningResult.transaction_id,
-      block_number: miningResult.block_number,
-      verification_status: 'verified'
-    })
-    .eq('id', record.id)
-
-  if (updateError) {
-    console.error('Update error:', updateError)
-    throw new Error(`Failed to update health record: ${updateError.message}`)
-  }
-
-  return new Response(
-    JSON.stringify({ 
-      success: true, 
-      record_id: record.id,
-      blockchain_hash: miningResult.block_hash,
-      transaction_id: miningResult.transaction_id,
-      block_number: miningResult.block_number
-    }),
-    { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-  )
 }
 
 async function handleNetworkStats(supabase: any) {
