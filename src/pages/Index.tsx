@@ -60,7 +60,7 @@ const Index = () => {
           <div className="flex items-center space-x-2">
             <Shield className="h-8 w-8 text-primary" />
             <span className="text-2xl font-bold bg-gradient-primary bg-clip-text text-transparent">
-              OneHealth Shield
+              Digital One Health
             </span>
           </div>
           <div className="flex space-x-4">
@@ -85,7 +85,7 @@ const Index = () => {
               <h1 className="text-5xl font-bold leading-tight">
                 Securing Nigeria's{" "}
                 <span className="bg-gradient-hero bg-clip-text text-transparent">
-                  OneHealth
+                  One Health
                 </span>{" "}
                 Data Infrastructure
               </h1>
@@ -108,7 +108,7 @@ const Index = () => {
           <div className="relative">
             <img 
               src={heroImage} 
-              alt="OneHealth Digital System Hero" 
+              alt="Digital One Health System Hero" 
               className="rounded-lg shadow-medical w-full h-auto"
             />
             <div className="absolute inset-0 bg-gradient-primary opacity-10 rounded-lg"></div>
@@ -172,7 +172,7 @@ const Index = () => {
           <h2 className="text-3xl font-bold mb-4">Ready to Secure Your Health Data?</h2>
           <p className="text-lg mb-8 opacity-90 max-w-2xl mx-auto">
             Join healthcare providers, researchers, and individuals who trust 
-            OneHealth Shield for their most sensitive data.
+            Digital One Health for their most sensitive data.
           </p>
           <Button size="lg" variant="secondary" className="shadow-glow" onClick={() => navigate('/auth')}>
             Begin Secure Registration
@@ -187,10 +187,10 @@ const Index = () => {
           <div className="flex flex-col md:flex-row justify-between items-center">
             <div className="flex items-center space-x-2 mb-4 md:mb-0">
               <Shield className="h-6 w-6 text-primary" />
-              <span className="text-lg font-semibold">OneHealth Shield</span>
+              <span className="text-lg font-semibold">Digital One Health</span>
             </div>
             <p className="text-muted-foreground text-center">
-              © 2024 OneHealth Shield. Professional health data protection platform.
+              © 2024 Digital One Health. Professional health data protection platform.
             </p>
           </div>
         </div>

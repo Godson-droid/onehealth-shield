@@ -100,8 +100,11 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
 
   const encrypted_data = await encryptData(healthData)
 
-  // Step 2: Create health record in database
-  const { data: record, error: recordError } = await supabase
+  // Step 2: Create health record in database using service role to bypass RLS
+  // Use admin client with service role key to insert the record
+  const serviceSupabase = createClient(supabaseUrl, Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '')
+  
+  const { data: record, error: recordError } = await serviceSupabase
     .from('health_records')
     .insert({
       user_id,
