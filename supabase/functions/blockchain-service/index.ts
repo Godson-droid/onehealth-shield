@@ -103,16 +103,21 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
     const encrypted_data = await encryptData(healthData)
     console.log('Health data encrypted successfully')
 
-    // Step 2: Create health record in database using service role to bypass RLS
-    console.log('Creating service role client...')
+    // Step 2: Get service role key and create client
     const serviceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    console.log('Service role key exists:', !!serviceRoleKey)
+    console.log('Service role key check:', { exists: !!serviceRoleKey, length: serviceRoleKey?.length })
     
     if (!serviceRoleKey) {
-      throw new Error('Service role key not available')
+      console.error('Service role key not found in environment')
+      throw new Error('Service role key not available - check Supabase secrets configuration')
     }
 
-    const serviceSupabase = createClient(supabaseUrl, serviceRoleKey)
+    const serviceSupabase = createClient(supabaseUrl, serviceRoleKey, {
+      auth: {
+        autoRefreshToken: false,
+        persistSession: false
+      }
+    })
     
     console.log('Inserting record into database...')
     const { data: record, error: recordError } = await serviceSupabase
@@ -131,50 +136,83 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
       .single()
 
     if (recordError) {
-      console.error('Database error:', recordError)
+      console.error('Database insert error:', recordError)
       throw new Error(`Failed to create health record: ${recordError.message}`)
     }
 
     console.log('Record created successfully:', record.id)
 
     // Step 3: Start blockchain mining process
-    console.log('Starting blockchain mining...')
-    const miningResult = await mineNewBlock(supabase, record)
-    console.log('Mining completed:', miningResult)
+    console.log('Starting blockchain mining process...')
+    try {
+      const miningResult = await mineNewBlock(serviceSupabase, record)
+      console.log('Mining completed successfully:', miningResult)
 
-    // Step 4: Update health record with blockchain info
-    console.log('Updating record with blockchain info...')
-    const { error: updateError } = await serviceSupabase
-      .from('health_records')
-      .update({
-        blockchain_hash: miningResult.block_hash,
-        transaction_id: miningResult.transaction_id,
-        block_number: miningResult.block_number,
-        verification_status: 'verified'
-      })
-      .eq('id', record.id)
+      // Step 4: Update health record with blockchain info
+      console.log('Updating record with blockchain data...')
+      const { data: updatedRecord, error: updateError } = await serviceSupabase
+        .from('health_records')
+        .update({
+          blockchain_hash: miningResult.block_hash,
+          transaction_id: miningResult.transaction_id,
+          block_number: miningResult.block_number,
+          verification_status: 'verified'
+        })
+        .eq('id', record.id)
+        .select()
+        .single()
 
-    if (updateError) {
-      console.error('Update error:', updateError)
-      throw new Error(`Failed to update health record: ${updateError.message}`)
+      if (updateError) {
+        console.error('Update error:', updateError)
+        // Don't throw error here - record is created, just blockchain info failed to update
+        console.log('Record created but blockchain update failed - will remain pending')
+      } else {
+        console.log('Record verification completed successfully')
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          record_id: record.id,
+          blockchain_hash: miningResult.block_hash,
+          transaction_id: miningResult.transaction_id,
+          block_number: miningResult.block_number,
+          verification_status: updateError ? 'pending' : 'verified'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+
+    } catch (miningError) {
+      console.error('Mining process failed:', miningError)
+      
+      // Return success for record creation even if mining failed
+      return new Response(
+        JSON.stringify({ 
+          success: true, 
+          record_id: record.id,
+          blockchain_hash: null,
+          transaction_id: null,
+          block_number: null,
+          verification_status: 'pending',
+          warning: 'Record created but blockchain verification pending'
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
     }
-
-    console.log('Record verification completed')
-
-    return new Response(
-      JSON.stringify({ 
-        success: true, 
-        record_id: record.id,
-        blockchain_hash: miningResult.block_hash,
-        transaction_id: miningResult.transaction_id,
-        block_number: miningResult.block_number
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
 
   } catch (error) {
     console.error('Error in handleCreateRecord:', error)
-    throw error
+    return new Response(
+      JSON.stringify({ 
+        success: false, 
+        error: error.message,
+        details: error.stack
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    )
   }
 }
 
@@ -285,87 +323,123 @@ async function encryptData(data: string): Promise<string> {
 }
 
 async function mineNewBlock(supabase: any, record: any): Promise<any> {
-  // Get the latest block to create the next one
-  const { data: latestBlock, error: blockError } = await supabase
-    .from('blockchain_blocks')
-    .select('*')
-    .order('block_number', { ascending: false })
-    .limit(1)
-    .single()
-
-  if (blockError && blockError.code !== 'PGRST116') { // PGRST116 is "not found"
-    throw new Error(`Failed to fetch latest block: ${blockError.message}`)
-  }
-
-  const previousBlock = latestBlock || {
-    block_number: -1,
-    current_hash: '0000000000000000000000000000000000000000000000000000000000000000'
-  }
-
-  const nextBlockNumber = previousBlock.block_number + 1
-  const previousHash = previousBlock.current_hash
+  console.log('Mining new block for record:', record.id)
   
-  // Create transaction data
-  const transactionData = {
-    record_id: record.id,
-    type: 'health_record',
-    data_hash: await hashString(record.encrypted_data),
-    timestamp: new Date().toISOString()
-  }
+  try {
+    // Get the latest block to create the next one
+    const { data: latestBlock, error: blockError } = await supabase
+      .from('blockchain_blocks')
+      .select('*')
+      .order('block_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
 
-  const merkleRoot = await hashString(JSON.stringify(transactionData))
-  const transactionId = await hashString(`${record.id}_${Date.now()}`)
+    if (blockError) {
+      console.error('Error fetching latest block:', blockError)
+      throw new Error(`Failed to fetch latest block: ${blockError.message}`)
+    }
 
-  // Simple proof-of-work mining simulation
-  let nonce = 0
-  let blockHash = ''
-  const difficulty = 4
-  const target = '0'.repeat(difficulty)
+    const previousBlock = latestBlock || {
+      block_number: -1,
+      current_hash: '0000000000000000000000000000000000000000000000000000000000000000'
+    }
 
-  do {
-    nonce++
-    const blockContent = `${nextBlockNumber}${previousHash}${merkleRoot}${new Date().toISOString()}${nonce}`
-    blockHash = await hashString(blockContent)
-  } while (!blockHash.startsWith(target) && nonce < 100000)
+    console.log('Previous block:', previousBlock.block_number)
 
-  // Select a random miner node
-  const { data: nodes } = await supabase
-    .from('blockchain_nodes')
-    .select('node_id')
-    .eq('status', 'active')
+    const nextBlockNumber = previousBlock.block_number + 1
+    const previousHash = previousBlock.current_hash
+    
+    // Create transaction data
+    const transactionData = {
+      record_id: record.id,
+      type: 'health_record',
+      data_hash: await hashString(record.encrypted_data),
+      timestamp: new Date().toISOString()
+    }
 
-  const randomNode = nodes[Math.floor(Math.random() * nodes.length)]
+    const merkleRoot = await hashString(JSON.stringify(transactionData))
+    const transactionId = await hashString(`${record.id}_${Date.now()}`)
 
-  // Create new block
-  const { data: newBlock, error: newBlockError } = await supabase
-    .from('blockchain_blocks')
-    .insert({
-      block_number: nextBlockNumber,
-      previous_hash: previousHash,
-      current_hash: blockHash,
-      merkle_root: merkleRoot,
-      nonce,
-      difficulty,
-      transactions_count: 1,
-      miner_node_id: randomNode?.node_id || 'node-lagos-01'
-    })
-    .select()
-    .single()
+    console.log('Transaction ID generated:', transactionId)
 
-  if (newBlockError) {
-    throw new Error(`Failed to create new block: ${newBlockError.message}`)
-  }
+    // Simple proof-of-work mining simulation
+    let nonce = 0
+    let blockHash = ''
+    const difficulty = 4
+    const target = '0'.repeat(difficulty)
 
-  // Update miner's block count
-  await supabase
-    .from('blockchain_nodes')
-    .update({ blocks_mined: supabase.rpc('increment_blocks_mined') })
-    .eq('node_id', randomNode?.node_id || 'node-lagos-01')
+    console.log('Starting proof-of-work mining...')
+    do {
+      nonce++
+      const blockContent = `${nextBlockNumber}${previousHash}${merkleRoot}${new Date().toISOString()}${nonce}`
+      blockHash = await hashString(blockContent)
+    } while (!blockHash.startsWith(target) && nonce < 10000) // Reduced iterations for faster processing
 
-  return {
-    block_hash: blockHash,
-    transaction_id: transactionId,
-    block_number: nextBlockNumber
+    console.log('Mining completed. Hash:', blockHash, 'Nonce:', nonce)
+
+    // Get available miner nodes or use default
+    const { data: nodes } = await supabase
+      .from('blockchain_nodes')
+      .select('node_id')
+      .eq('status', 'active')
+
+    const randomNode = nodes && nodes.length > 0 ? nodes[Math.floor(Math.random() * nodes.length)] : null
+    const minerNodeId = randomNode?.node_id || 'node-lagos-01'
+
+    console.log('Selected miner node:', minerNodeId)
+
+    // Create new block
+    const { data: newBlock, error: newBlockError } = await supabase
+      .from('blockchain_blocks')
+      .insert({
+        block_number: nextBlockNumber,
+        previous_hash: previousHash,
+        current_hash: blockHash,
+        merkle_root: merkleRoot,
+        nonce,
+        difficulty,
+        transactions_count: 1,
+        miner_node_id: minerNodeId
+      })
+      .select()
+      .single()
+
+    if (newBlockError) {
+      console.error('Error creating new block:', newBlockError)
+      throw new Error(`Failed to create new block: ${newBlockError.message}`)
+    }
+
+    console.log('New block created:', newBlock.id)
+
+    // Try to update miner's block count (don't fail if this fails)
+    try {
+      const { error: updateError } = await supabase
+        .from('blockchain_nodes')
+        .update({ 
+          blocks_mined: supabase.sql`blocks_mined + 1`,
+          last_seen: new Date().toISOString()
+        })
+        .eq('node_id', minerNodeId)
+
+      if (updateError) {
+        console.log('Warning: Failed to update miner stats:', updateError)
+      }
+    } catch (updateError) {
+      console.log('Warning: Could not update miner stats:', updateError)
+    }
+
+    const result = {
+      block_hash: blockHash,
+      transaction_id: transactionId,
+      block_number: nextBlockNumber
+    }
+
+    console.log('Mining result:', result)
+    return result
+
+  } catch (error) {
+    console.error('Mining process failed:', error)
+    throw error
   }
 }
 

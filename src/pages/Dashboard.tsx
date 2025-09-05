@@ -371,6 +371,10 @@ const Dashboard = () => {
                   <Database className="h-4 w-4 mr-2" />
                   View Blockchain
                 </Button>
+                <Button variant="outline" className="w-full justify-start" onClick={() => navigate('/records')}>
+                  <FileText className="h-4 w-4 mr-2" />
+                  Manage Records
+                </Button>
               </CardContent>
             </Card>
 

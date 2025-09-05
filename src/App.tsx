@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import Dashboard from "./pages/Dashboard";
+import Records from "./pages/Records";
 import MFASetup from "./pages/MFASetup";
 import MFAVerification from "./pages/MFAVerification";
 import SharedData from "./pages/SharedData";
@@ -25,6 +26,7 @@ const App = () => (
           <Route path="/mfa-setup" element={<MFASetup />} />
           <Route path="/mfa-verify" element={<MFAVerification />} />
           <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/records" element={<Records />} />
           <Route path="/shared-data" element={<SharedData />} />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
