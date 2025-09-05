@@ -164,12 +164,10 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
 
       if (updateError) {
         console.error('Update error:', updateError)
-        // Don't throw error here - record is created, just blockchain info failed to update
-        console.log('Record created but blockchain update failed - will remain pending')
-      } else {
-        console.log('Record verification completed successfully')
+        throw new Error(`Failed to update record with blockchain data: ${updateError.message}`)
       }
 
+      console.log('Record verification completed successfully')
       return new Response(
         JSON.stringify({ 
           success: true, 
@@ -177,7 +175,7 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
           blockchain_hash: miningResult.block_hash,
           transaction_id: miningResult.transaction_id,
           block_number: miningResult.block_number,
-          verification_status: updateError ? 'pending' : 'verified'
+          verification_status: 'verified'
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
@@ -185,19 +183,20 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
     } catch (miningError) {
       console.error('Mining process failed:', miningError)
       
-      // Return success for record creation even if mining failed
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          record_id: record.id,
-          blockchain_hash: null,
-          transaction_id: null,
-          block_number: null,
-          verification_status: 'pending',
-          warning: 'Record created but blockchain verification pending'
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      // Try to update record to show mining failure
+      try {
+        await serviceSupabase
+          .from('health_records')
+          .update({
+            verification_status: 'failed',
+            description: record.description + ' (Blockchain verification failed)'
+          })
+          .eq('id', record.id)
+      } catch (finalError) {
+        console.error('Failed to update record status:', finalError)
+      }
+      
+      throw new Error(`Blockchain verification failed: ${miningError.message}`)
     }
 
   } catch (error) {
@@ -414,12 +413,7 @@ async function mineNewBlock(supabase: any, record: any): Promise<any> {
     // Try to update miner's block count (don't fail if this fails)
     try {
       const { error: updateError } = await supabase
-        .from('blockchain_nodes')
-        .update({ 
-          blocks_mined: supabase.sql`blocks_mined + 1`,
-          last_seen: new Date().toISOString()
-        })
-        .eq('node_id', minerNodeId)
+        .rpc('increment_miner_blocks', { node_id: minerNodeId })
 
       if (updateError) {
         console.log('Warning: Failed to update miner stats:', updateError)
