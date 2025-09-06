@@ -185,6 +185,10 @@ export type Database = {
         Args: { check_user_id?: string }
         Returns: string
       }
+      increment_miner_blocks: {
+        Args: { node_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never
