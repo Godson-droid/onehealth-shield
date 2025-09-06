@@ -28,6 +28,7 @@ const Dashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [recordModalOpen, setRecordModalOpen] = useState(false);
   const [blockchainModalOpen, setBlockchainModalOpen] = useState(false);
+  const [currentRecordId, setCurrentRecordId] = useState<string | undefined>();
   const [healthRecords, setHealthRecords] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [userRole, setUserRole] = useState("individual");
@@ -234,6 +235,14 @@ const Dashboard = () => {
         description: "Unable to generate share link. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  const handleRecordCreated = (recordId?: string) => {
+    fetchHealthRecords();
+    if (recordId) {
+      setCurrentRecordId(recordId);
+      setBlockchainModalOpen(true);
     }
   };
 
@@ -449,9 +458,13 @@ const Dashboard = () => {
         <RecordModal 
           open={recordModalOpen} 
           onOpenChange={setRecordModalOpen}
-          onRecordCreated={fetchHealthRecords}
+          onRecordCreated={handleRecordCreated}
         />
-        <BlockchainModal open={blockchainModalOpen} onOpenChange={setBlockchainModalOpen} />
+        <BlockchainModal 
+          open={blockchainModalOpen} 
+          onOpenChange={setBlockchainModalOpen}
+          recordId={currentRecordId}
+        />
       </div>
     </div>
   );

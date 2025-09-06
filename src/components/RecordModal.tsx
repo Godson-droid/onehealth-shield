@@ -14,7 +14,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface RecordModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onRecordCreated?: () => void;
+  onRecordCreated?: (recordId?: string) => void;
 }
 
 const RecordModal = ({ open, onOpenChange, onRecordCreated }: RecordModalProps) => {
@@ -56,7 +56,9 @@ const RecordModal = ({ open, onOpenChange, onRecordCreated }: RecordModalProps) 
 
       toast({
         title: "Record Created Successfully",
-        description: `Your health record has been encrypted and added to blockchain block #${data.block_number}`,
+        description: data.verification_status === 'verified' 
+          ? `Your health record has been encrypted and added to blockchain block #${data.block_number}`
+          : "Your health record has been created and is being verified on the blockchain",
       });
 
       // Reset form
@@ -67,9 +69,9 @@ const RecordModal = ({ open, onOpenChange, onRecordCreated }: RecordModalProps) 
       setIsPublic(false);
       onOpenChange(false);
       
-      // Refresh dashboard data
+      // Refresh dashboard data and show blockchain modal
       if (onRecordCreated) {
-        onRecordCreated();
+        onRecordCreated(data.record_id);
       }
     } catch (error: any) {
       console.error('Error creating record:', error);

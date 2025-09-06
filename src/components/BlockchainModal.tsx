@@ -9,11 +9,15 @@ import { supabase } from "@/integrations/supabase/client";
 interface BlockchainModalProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  recordId?: string; // Add recordId to track actual record status
 }
 
-const BlockchainModal = ({ open, onOpenChange }: BlockchainModalProps) => {
+const BlockchainModal = ({ open, onOpenChange, recordId }: BlockchainModalProps) => {
   const [verificationProgress, setVerificationProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState(0);
+  const [isVerified, setIsVerified] = useState(false);
+  const [verificationFailed, setVerificationFailed] = useState(false);
+  const [recordData, setRecordData] = useState<any>(null);
   const [networkStats, setNetworkStats] = useState({
     total_nodes: 0,
     active_nodes: 0,
@@ -59,34 +63,78 @@ const BlockchainModal = ({ open, onOpenChange }: BlockchainModalProps) => {
   ];
 
   useEffect(() => {
-    if (open) {
+    if (open && recordId) {
       setVerificationProgress(0);
       setCurrentStep(0);
+      setIsVerified(false);
+      setVerificationFailed(false);
       
-      // Fetch real network stats
+      // Fetch network stats
       fetchNetworkStats();
       
-      const interval = setInterval(() => {
+      // Check record verification status
+      checkRecordStatus();
+      
+      // Set up interval to check status periodically
+      const statusInterval = setInterval(() => {
+        checkRecordStatus();
+      }, 2000);
+
+      // Progress simulation
+      const progressInterval = setInterval(() => {
         setVerificationProgress((prev) => {
           if (prev >= 100) {
-            clearInterval(interval);
+            clearInterval(progressInterval);
             return 100;
           }
-          return prev + 2;
+          return Math.min(prev + 1, 100);
         });
 
-        setCurrentStep((prev) => {
-          if (verificationProgress >= 20 && prev < 1) return 1;
-          if (verificationProgress >= 40 && prev < 2) return 2;
-          if (verificationProgress >= 70 && prev < 3) return 3;
-          if (verificationProgress >= 100 && prev < 4) return 4;
-          return prev;
+        setCurrentStep((prevStep) => {
+          if (verificationProgress >= 20 && prevStep < 1) return 1;
+          if (verificationProgress >= 40 && prevStep < 2) return 2;
+          if (verificationProgress >= 70 && prevStep < 3) return 3;
+          if (verificationProgress >= 90 && prevStep < 4) return 4;
+          return prevStep;
         });
-      }, 100);
+      }, 150);
 
-      return () => clearInterval(interval);
+      return () => {
+        clearInterval(statusInterval);
+        clearInterval(progressInterval);
+      };
     }
-  }, [open, verificationProgress]);
+  }, [open, recordId, verificationProgress]);
+
+  const checkRecordStatus = async () => {
+    if (!recordId) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('health_records')
+        .select('*')
+        .eq('id', recordId)
+        .single();
+
+      if (error) {
+        console.error('Error checking record status:', error);
+        return;
+      }
+
+      setRecordData(data);
+      
+      if (data.verification_status === 'verified' && data.blockchain_hash) {
+        setIsVerified(true);
+        setVerificationProgress(100);
+        setCurrentStep(4);
+      } else if (data.verification_status === 'failed') {
+        setVerificationFailed(true);
+        setVerificationProgress(100);
+      }
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  };
 
   const fetchNetworkStats = async () => {
     try {
@@ -185,12 +233,30 @@ const BlockchainModal = ({ open, onOpenChange }: BlockchainModalProps) => {
             </div>
           </div>
 
-          {verificationProgress === 100 && (
-            <div className="bg-accent-light p-4 rounded-lg text-center">
+          {(isVerified || verificationProgress === 100) && !verificationFailed && (
+            <div className="bg-accent/10 p-4 rounded-lg text-center">
               <CheckCircle className="h-8 w-8 text-accent mx-auto mb-2" />
               <p className="font-medium text-accent">Blockchain Verification Complete!</p>
               <p className="text-sm text-muted-foreground">
                 Your health record has been successfully encrypted and added to the blockchain.
+              </p>
+              {recordData?.blockchain_hash && (
+                <p className="text-xs text-muted-foreground mt-2">
+                  Block Hash: {recordData.blockchain_hash.substring(0, 20)}...
+                </p>
+              )}
+              <Button className="mt-3" onClick={() => onOpenChange(false)}>
+                Close
+              </Button>
+            </div>
+          )}
+          
+          {verificationFailed && (
+            <div className="bg-destructive/10 p-4 rounded-lg text-center">
+              <AlertCircle className="h-8 w-8 text-destructive mx-auto mb-2" />
+              <p className="font-medium text-destructive">Verification Failed</p>
+              <p className="text-sm text-muted-foreground">
+                There was an issue with blockchain verification. The record has been saved but requires manual verification.
               </p>
               <Button className="mt-3" onClick={() => onOpenChange(false)}>
                 Close
