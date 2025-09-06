@@ -120,7 +120,8 @@ const Dashboard = () => {
     animalRecords: loading ? 0 : healthRecords.filter(r => r.record_type === 'animal').length,
     environmentalRecords: loading ? 0 : healthRecords.filter(r => r.record_type === 'environmental').length,
     encryptedRecords: loading ? 0 : healthRecords.length, // All records are encrypted
-    blockchainVerified: loading ? 0 : healthRecords.filter(r => r.verification_status === 'verified').length
+    blockchainVerified: loading ? 0 : healthRecords.filter(r => r.verification_status === 'verified').length,
+    pendingVerification: loading ? 0 : healthRecords.filter(r => r.verification_status === 'pending').length
   };
 
   const recentActivity = loading ? [] : healthRecords.slice(0, 5).map((record, index) => ({
@@ -243,6 +244,32 @@ const Dashboard = () => {
     if (recordId) {
       setCurrentRecordId(recordId);
       setBlockchainModalOpen(true);
+    }
+  };
+
+  const processPendingRecords = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase.functions.invoke('process-pending-records');
+      
+      if (error) throw error;
+      
+      toast({
+        title: "Processing Complete",
+        description: `Processed ${data.processed} records, ${data.failed} failed`,
+      });
+      
+      // Refresh the dashboard data
+      await fetchHealthRecords();
+    } catch (error: any) {
+      console.error('Error processing pending records:', error);
+      toast({
+        title: "Processing Failed",
+        description: error.message || "Failed to process pending records",
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -384,6 +411,12 @@ const Dashboard = () => {
                   <FileText className="h-4 w-4 mr-2" />
                   Manage Records
                 </Button>
+                {stats.pendingVerification > 0 && (
+                  <Button variant="default" className="w-full justify-start" onClick={processPendingRecords} disabled={loading}>
+                    <Database className="h-4 w-4 mr-2" />
+                    Process Pending ({stats.pendingVerification})
+                  </Button>
+                )}
               </CardContent>
             </Card>
 

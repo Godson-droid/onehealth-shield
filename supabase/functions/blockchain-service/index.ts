@@ -74,7 +74,7 @@ Deno.serve(async (req) => {
 })
 
 async function handleCreateRecord(requestBody: any, supabase: any) {
-  const { record_type, patient_name, location, description, user_id, is_public = false } = requestBody
+  const { record_type, patient_name, location, description, user_id, is_public = false, existing_record_id } = requestBody
 
   console.log('Creating record:', { record_type, patient_name, location, user_id, is_public })
 
@@ -119,21 +119,52 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
       }
     })
     
-    console.log('Inserting record into database...')
-    const { data: record, error: recordError } = await serviceSupabase
-      .from('health_records')
-      .insert({
-        user_id,
-        record_type,
-        patient_name: `${uniqueId} - ${patient_name}`,
-        location,
-        description,
-        encrypted_data,
-        verification_status: 'pending',
-        is_public
-      })
-      .select()
-      .single()
+    let record
+    
+    if (existing_record_id) {
+      // Update existing record instead of creating new one
+      console.log('Updating existing record:', existing_record_id)
+      const { data: existingRecord, error: recordError } = await serviceSupabase
+        .from('health_records')
+        .update({
+          encrypted_data,
+          verification_status: 'pending'
+        })
+        .eq('id', existing_record_id)
+        .select()
+        .single()
+      
+      if (recordError) {
+        console.error('Database update error:', recordError)
+        throw new Error(`Failed to update health record: ${recordError.message}`)
+      }
+      
+      record = existingRecord
+    } else {
+      // Create new record
+      console.log('Inserting record into database...')
+      const { data: newRecord, error: recordError } = await serviceSupabase
+        .from('health_records')
+        .insert({
+          user_id,
+          record_type,
+          patient_name: `${uniqueId} - ${patient_name}`,
+          location,
+          description,
+          encrypted_data,
+          verification_status: 'pending',
+          is_public
+        })
+        .select()
+        .single()
+      
+      if (recordError) {
+        console.error('Database insert error:', recordError)
+        throw new Error(`Failed to create health record: ${recordError.message}`)
+      }
+      
+      record = newRecord
+    }
 
     if (recordError) {
       console.error('Database insert error:', recordError)
