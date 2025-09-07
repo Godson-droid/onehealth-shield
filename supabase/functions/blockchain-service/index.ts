@@ -166,11 +166,6 @@ async function handleCreateRecord(requestBody: any, supabase: any) {
       record = newRecord
     }
 
-    if (recordError) {
-      console.error('Database insert error:', recordError)
-      throw new Error(`Failed to create health record: ${recordError.message}`)
-    }
-
     console.log('Record created successfully:', record.id)
 
     // Step 3: Start blockchain mining process
